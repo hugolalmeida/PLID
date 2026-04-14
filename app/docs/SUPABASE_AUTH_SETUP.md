@@ -1,0 +1,90 @@
+# Supabase Auth Setup (Fase 2)
+
+Use este script no SQL Editor do Supabase.
+
+```sql
+-- papeis permitidos
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'user_role') then
+    create type public.user_role as enum ('presidencia', 'secretaria', 'lider', 'visualizador');
+  end if;
+end $$;
+
+-- perfil por usuario autenticado
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  full_name text,
+  role public.user_role not null default 'visualizador',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table public.profiles enable row level security;
+
+-- trigger para updated_at
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_profiles_updated_at on public.profiles;
+create trigger trg_profiles_updated_at
+before update on public.profiles
+for each row execute function public.set_updated_at();
+
+-- cria perfil automatico ao registrar usuario no auth
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into public.profiles (id, full_name)
+  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', ''));
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute function public.handle_new_user();
+
+-- politicas: usuario le/atualiza apenas o proprio perfil
+drop policy if exists "profiles_select_own" on public.profiles;
+create policy "profiles_select_own"
+on public.profiles
+for select
+to authenticated
+using (auth.uid() = id);
+
+drop policy if exists "profiles_update_own" on public.profiles;
+create policy "profiles_update_own"
+on public.profiles
+for update
+to authenticated
+using (auth.uid() = id)
+with check (auth.uid() = id);
+```
+
+## Teste rapido
+1. Crie um usuario em `Authentication > Users`.
+2. Defina senha para esse usuario.
+3. Abra `/login` no app e autentique.
+4. Verifique `/dashboard` exibindo e-mail/nome e papel.
+
+## Ajuste de papel
+Para promover um usuario:
+
+```sql
+update public.profiles
+set role = 'lider'
+where id = '<USER_UUID>';
+```
