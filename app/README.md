@@ -30,9 +30,14 @@ npm run dev
 ```
 
 ## Documentacao
+- Documento de retomada (status + proximos passos): `docs/PROJECT_HANDOFF_STATUS.md`
 - Roadmap e arquitetura inicial: `docs/ROADMAP_MVP.md`
 - Setup de auth/perfis no Supabase: `docs/SUPABASE_AUTH_SETUP.md`
 - Setup de organizacoes no Supabase: `docs/SUPABASE_ORGANIZATIONS_SETUP.md`
+- Setup de cargos e pessoas no Supabase: `docs/SUPABASE_ROLES_PEOPLE_SETUP.md`
+- Setup de reunioes e atividades no Supabase: `docs/SUPABASE_MEETINGS_TASKS_SETUP.md`
+- Setup para calendar_events e horario em tasks: `docs/SUPABASE_CALENDAR_EVENTS_SETUP.md`
+- Seed de exemplo para testar organograma: `docs/SUPABASE_ORGANOGRAMA_SEED_EXEMPLO.md`
 
 ## Stack
 - Next.js (App Router)

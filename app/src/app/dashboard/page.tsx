@@ -47,7 +47,7 @@ export default async function DashboardPage() {
           </form>
         </div>
 
-        <div className="mt-6 grid gap-4 md:grid-cols-3">
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
           <article className="rounded-xl border border-[var(--line)] bg-white p-4">
             <p className="text-sm font-medium">Perfil ativo</p>
             <p className="muted-text mt-2 text-sm">
@@ -67,8 +67,76 @@ export default async function DashboardPage() {
             </Link>
           </article>
           <article className="rounded-xl border border-[var(--line)] bg-white p-4">
+            <p className="text-sm font-medium">Organograma</p>
+            <p className="muted-text mt-2 text-sm">
+              Visualizacao interativa da estrutura completa.
+            </p>
+            <Link
+              href="/organograma"
+              className="mt-3 inline-block text-sm font-medium text-[var(--accent)] underline underline-offset-2"
+            >
+              Abrir modulo
+            </Link>
+          </article>
+          <article className="rounded-xl border border-[var(--line)] bg-white p-4">
             <p className="text-sm font-medium">Atividades</p>
-            <p className="muted-text mt-2 text-sm">Modulo em construcao.</p>
+            <p className="muted-text mt-2 text-sm">
+              Cadastro com prazo, responsavel e reuniao vinculada.
+            </p>
+            <Link
+              href="/tasks"
+              className="mt-3 inline-block text-sm font-medium text-[var(--accent)] underline underline-offset-2"
+            >
+              Abrir modulo
+            </Link>
+          </article>
+          <article className="rounded-xl border border-[var(--line)] bg-white p-4">
+            <p className="text-sm font-medium">Reunioes</p>
+            <p className="muted-text mt-2 text-sm">
+              Registro de reunioes para historico e vinculo de tarefas.
+            </p>
+            <Link
+              href="/meetings"
+              className="mt-3 inline-block text-sm font-medium text-[var(--accent)] underline underline-offset-2"
+            >
+              Abrir modulo
+            </Link>
+          </article>
+          <article className="rounded-xl border border-[var(--line)] bg-white p-4">
+            <p className="text-sm font-medium">Cargos</p>
+            <p className="muted-text mt-2 text-sm">
+              Cadastro de cargos por organizacao.
+            </p>
+            <Link
+              href="/roles"
+              className="mt-3 inline-block text-sm font-medium text-[var(--accent)] underline underline-offset-2"
+            >
+              Abrir modulo
+            </Link>
+          </article>
+          <article className="rounded-xl border border-[var(--line)] bg-white p-4">
+            <p className="text-sm font-medium">Pessoas</p>
+            <p className="muted-text mt-2 text-sm">
+              Cadastro de lideres e membros.
+            </p>
+            <Link
+              href="/people"
+              className="mt-3 inline-block text-sm font-medium text-[var(--accent)] underline underline-offset-2"
+            >
+              Abrir modulo
+            </Link>
+          </article>
+          <article className="rounded-xl border border-[var(--line)] bg-white p-4">
+            <p className="text-sm font-medium">Vinculos</p>
+            <p className="muted-text mt-2 text-sm">
+              Associacao de pessoa com cargo e periodo.
+            </p>
+            <Link
+              href="/person-roles"
+              className="mt-3 inline-block text-sm font-medium text-[var(--accent)] underline underline-offset-2"
+            >
+              Abrir modulo
+            </Link>
           </article>
         </div>
 
