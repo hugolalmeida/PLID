@@ -50,6 +50,8 @@ robocopy "C:\Users\hugog\OneDrive\Área de Trabalho\PLID\app" "C:\dev\plid-app" 
 - Reunioes (CRUD): `/meetings`
 - Atividades (CRUD): `/tasks`
   - Com responsavel, organizacao, status, prazo, horario e reuniao vinculada
+- Metas (CRUD): `/goals`
+  - Detalhe da meta com historico: `/goals/[id]`
 
 ## 5. Scripts SQL Ja Criados
 Documentos em `docs/`:
@@ -58,6 +60,7 @@ Documentos em `docs/`:
 - `SUPABASE_ROLES_PEOPLE_SETUP.md`
 - `SUPABASE_MEETINGS_TASKS_SETUP.md`
 - `SUPABASE_CALENDAR_EVENTS_SETUP.md`
+- `SUPABASE_GOALS_SETUP.md`
 - `SUPABASE_ORGANOGRAMA_SEED_EXEMPLO.md`
 
 ## 6. Estado Atual de Backend
@@ -66,6 +69,7 @@ Ja pronto:
 - RLS e policies para leitura autenticada e escrita por perfil autorizado
 - `due_time` em `tasks`
 - Tabela `calendar_events` preparada
+- Estrutura de metas (`goals`) e historico (`goal_updates`)
 
 Falta:
 - Integracao real com Google Calendar (sincronizar `tasks` <-> `calendar_events`)
@@ -77,28 +81,24 @@ Falta:
 Alta prioridade:
 1. Integracao Google Calendar na criacao/edicao de atividade
 2. Modulo de notificacoes (2 dias antes + tarefa sem atualizacao)
-3. Modulo de Metas (novo)
+3. Ata de reuniao (vinculada em `meetings`)
 
 Media prioridade:
-1. Ata de reuniao (vinculada em `meetings`)
-2. Dashboard com indicadores reais (atrasadas, concluidas, por ministerio)
-3. Exportacao de relatorios
+1. Dashboard com indicadores reais (atrasadas, concluidas, por ministerio)
+2. Exportacao de relatorios
+3. Integracao de metas com dashboard executivo
 
-## 8. Novo Modulo Requerido: Metas
-Objetivo:
-- Acompanhar metas ministeriais por periodo e responsavel.
+## 8. Modulo de Metas (Status)
+Ja implementado:
+- Cadastro e edicao de metas em `/goals`
+- Status de meta: `draft`, `active`, `at_risk`, `achieved`, `cancelled`
+- Historico de atualizacoes em `/goals/[id]`
+- Atualizacao de progresso com registro de autor e data
 
-Escopo sugerido (MVP):
-- Tabela `goals`:
-  - `id`, `title`, `description`, `organization_id`, `owner_person_id`, `period_start`, `period_end`, `target_value`, `current_value`, `status`, `created_at`, `updated_at`
-- Tabela `goal_updates`:
-  - `id`, `goal_id`, `update_note`, `current_value`, `created_by`, `created_at`
-- Regras:
-  - Toda meta precisa de organizacao e responsavel
-  - Status sugeridos: `draft`, `active`, `at_risk`, `achieved`, `cancelled`
-- Telas:
-  - `/goals` (lista + filtros + CRUD)
-  - `/goals/[id]` (detalhe + historico de atualizacoes)
+Pendencias do modulo:
+- Filtros por status, periodo e organizacao
+- Metricas agregadas por ministerio
+- Widgets de metas no dashboard principal
 
 ## 9. Melhorias de Front-end (Backlog)
 Melhorias recomendadas para proxima rodada de UX:
@@ -127,7 +127,7 @@ Melhorias recomendadas para proxima rodada de UX:
 1. Implementar modulo de Metas (DB + CRUD + tela)
 2. Implementar Ata em Reunioes
 3. Iniciar integracao Google Calendar (sincronizacao basica)
-4. Rodada de refinamento visual no frontend (priorizando tarefas e organograma)
+4. Rodada de refinamento visual no frontend (priorizando tarefas, metas e organograma)
 
 ## 12. Checklist de Retomada Rapida
 1. Sincronizar codigo para `C:\dev\plid-app`
@@ -147,6 +147,7 @@ npm run dev
 - `/roles`
 - `/people`
 - `/person-roles`
+- `/goals`
 
 ---
 Ultima atualizacao: 15/04/2026

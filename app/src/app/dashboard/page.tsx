@@ -138,6 +138,18 @@ export default async function DashboardPage() {
               Abrir modulo
             </Link>
           </article>
+          <article className="rounded-xl border border-[var(--line)] bg-white p-4">
+            <p className="text-sm font-medium">Metas</p>
+            <p className="muted-text mt-2 text-sm">
+              Gestao de metas por periodo com historico de progresso.
+            </p>
+            <Link
+              href="/goals"
+              className="mt-3 inline-block text-sm font-medium text-[var(--accent)] underline underline-offset-2"
+            >
+              Abrir modulo
+            </Link>
+          </article>
         </div>
 
         <div className="mt-6">
