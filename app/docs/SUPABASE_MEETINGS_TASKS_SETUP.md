@@ -19,6 +19,9 @@ create table if not exists public.meetings (
   updated_at timestamptz not null default now()
 );
 
+alter table public.meetings
+  add column if not exists minutes text;
+
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),
   title text not null,
@@ -154,6 +157,8 @@ using (
 
 ## Teste rapido
 1. Acesse `/meetings` e crie uma reuniao.
-2. Acesse `/tasks` e crie atividade vinculando pessoa, organizacao e reuniao.
-3. Confirme que usuario `visualizador` fica apenas em leitura.
-
+2. Ao criar, valide o redirecionamento para `/meetings/{id}/registro`.
+3. No registro da reuniao, preencha pontos importantes e salve.
+4. Acesse `/tasks` e crie atividade vinculando pessoa, organizacao e reuniao.
+5. Confirme que usuario `visualizador` fica apenas em leitura.
+6. Em reunioes, valide a acao `Abrir registro` para editar o documento (`minutes`).

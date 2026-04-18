@@ -48,8 +48,11 @@ robocopy "C:\Users\hugog\OneDrive\Área de Trabalho\PLID\app" "C:\dev\plid-app" 
   - Visao Geral (mapa por niveis)
   - Visao Detalhada (arvore clicavel + painel lateral)
 - Reunioes (CRUD): `/meetings`
+  - Campo `minutes` para documento/registro da reuniao
+  - Registro dedicado em `/meetings/[id]/registro`
 - Atividades (CRUD): `/tasks`
   - Com responsavel, organizacao, status, prazo, horario e reuniao vinculada
+  - Sincronizacao manual com Google Calendar por tarefa
 - Metas (CRUD): `/goals`
   - Detalhe da meta com historico: `/goals/[id]`
 
@@ -69,24 +72,27 @@ Ja pronto:
 - RLS e policies para leitura autenticada e escrita por perfil autorizado
 - `due_time` em `tasks`
 - Tabela `calendar_events` preparada
+- Sincronizacao manual task -> Google Calendar com upsert em `calendar_events`
 - Estrutura de metas (`goals`) e historico (`goal_updates`)
+- Campo `minutes` em `meetings` para documento/registro da reuniao
+- Fluxo de registro separado da criacao rapida de reunioes
 
 Falta:
-- Integracao real com Google Calendar (sincronizar `tasks` <-> `calendar_events`)
+- Automacao de sincronizacao no fluxo de criacao/edicao (sem botao manual)
 - Notificacoes por e-mail e regras de cobranca automatica
 - Exportacao (PDF/CSV)
 - Auditoria/historico de alteracoes
 
 ## 7. Pontos Funcionais Pendentes (Produto)
 Alta prioridade:
-1. Integracao Google Calendar na criacao/edicao de atividade
+1. Automatizar sincronizacao Google Calendar na criacao/edicao de atividade
 2. Modulo de notificacoes (2 dias antes + tarefa sem atualizacao)
-3. Ata de reuniao (vinculada em `meetings`)
+3. Dashboard com indicadores reais (atrasadas, concluidas, por ministerio)
 
 Media prioridade:
-1. Dashboard com indicadores reais (atrasadas, concluidas, por ministerio)
-2. Exportacao de relatorios
-3. Integracao de metas com dashboard executivo
+1. Exportacao de relatorios
+2. Integracao de metas com dashboard executivo
+3. Melhorar editor do documento da reuniao (markdown ou texto rico)
 
 ## 8. Modulo de Metas (Status)
 Ja implementado:
@@ -119,15 +125,15 @@ Melhorias recomendadas para proxima rodada de UX:
    - layout otimizado para uso durante reunioes
 
 ## 10. Itens Ja Mapeados para Refino Futuro
-- Reunioes: adicionar campo de ata (texto rico ou markdown simples)
+- Reunioes: evoluir o documento da reuniao para texto rico ou markdown simples
 - Atividades: manter horario (ja adicionado) e evoluir para lembretes automáticos
 - Organograma: ampliar visao geral para leitura executiva em uma tela
 
 ## 11. Plano Sugerido para a Proxima Sessao
-1. Implementar modulo de Metas (DB + CRUD + tela)
-2. Implementar Ata em Reunioes
-3. Iniciar integracao Google Calendar (sincronizacao basica)
-4. Rodada de refinamento visual no frontend (priorizando tarefas, metas e organograma)
+1. Automatizar sincronizacao Google Calendar no fluxo de tarefas
+2. Criar indicadores no dashboard (tarefas, metas, reunioes)
+3. Rodada de refinamento visual no frontend (priorizando tarefas, metas e organograma)
+4. Melhorar editor do documento da reuniao
 
 ## 12. Checklist de Retomada Rapida
 1. Sincronizar codigo para `C:\dev\plid-app`
@@ -142,6 +148,7 @@ npm run dev
 - `/dashboard`
 - `/organograma`
 - `/meetings`
+- `/meetings/{id}/registro`
 - `/tasks`
 - `/organizations`
 - `/roles`
@@ -150,4 +157,4 @@ npm run dev
 - `/goals`
 
 ---
-Ultima atualizacao: 15/04/2026
+Ultima atualizacao: 17/04/2026

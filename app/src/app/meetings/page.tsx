@@ -17,6 +17,7 @@ type Meeting = {
   title: string;
   date: string;
   notes: string | null;
+  minutes: string | null;
 };
 
 export default async function MeetingsPage() {
@@ -37,7 +38,7 @@ export default async function MeetingsPage() {
 
   const { data: meetings, error } = await supabase
     .from("meetings")
-    .select("id, title, date, notes")
+    .select("id, title, date, notes, minutes")
     .order("date", { ascending: false })
     .returns<Meeting[]>();
 
@@ -57,7 +58,8 @@ export default async function MeetingsPage() {
             </p>
             <h1 className="mt-2 text-2xl font-semibold md:text-3xl">Reunioes</h1>
             <p className="muted-text mt-2 text-sm">
-              Registre reunioes com data e notas para vincular atividades.
+              Crie reunioes rapidamente e depois abra um registro separado para
+              anotar pontos importantes, decisoes e encaminhamentos.
             </p>
           </div>
           <Link
@@ -93,7 +95,7 @@ export default async function MeetingsPage() {
                 type="submit"
                 className="md:col-span-3 w-full rounded-lg bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white md:w-auto"
               >
-                Criar reuniao
+                Criar e abrir registro
               </button>
             </form>
           </section>
@@ -106,6 +108,7 @@ export default async function MeetingsPage() {
                 <th className="px-4 py-3 text-left font-semibold">Titulo</th>
                 <th className="px-4 py-3 text-left font-semibold">Data</th>
                 <th className="px-4 py-3 text-left font-semibold">Notas</th>
+                <th className="px-4 py-3 text-left font-semibold">Documento</th>
                 <th className="px-4 py-3 text-left font-semibold">Acoes</th>
               </tr>
             </thead>
@@ -149,6 +152,14 @@ export default async function MeetingsPage() {
                     <td className="px-4 py-3">{meeting.date}</td>
                     <td className="px-4 py-3">{meeting.notes || "-"}</td>
                     <td className="px-4 py-3">
+                      <Link
+                        href={`/meetings/${meeting.id}/registro`}
+                        className="rounded-md border border-[var(--line)] px-2 py-1.5 text-xs font-medium text-[var(--accent)]"
+                      >
+                        Abrir registro
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3">
                       {canManage ? (
                         <form action={deleteMeetingAction}>
                           <input type="hidden" name="id" value={meeting.id} />
@@ -167,7 +178,7 @@ export default async function MeetingsPage() {
                 ))
               ) : (
                 <tr>
-                  <td className="px-4 py-6 muted-text" colSpan={4}>
+                  <td className="px-4 py-6 muted-text" colSpan={5}>
                     Nenhuma reuniao cadastrada ainda.
                   </td>
                 </tr>
@@ -179,4 +190,3 @@ export default async function MeetingsPage() {
     </main>
   );
 }
-

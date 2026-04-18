@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   createTaskAction,
   deleteTaskAction,
+  syncTaskCalendarAction,
   updateTaskAction,
 } from "./actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -39,6 +40,12 @@ type Task = {
   meeting_id: string | null;
 };
 
+type CalendarEvent = {
+  task_id: string;
+  google_event_id: string;
+  synced_at: string;
+};
+
 const statusOptions: Array<Task["status"]> = [
   "todo",
   "in_progress",
@@ -69,7 +76,13 @@ export default async function TasksPage() {
     .eq("id", user.id)
     .maybeSingle<Profile>();
 
-  const [tasksResult, peopleResult, organizationsResult, meetingsResult] =
+  const [
+    tasksResult,
+    peopleResult,
+    organizationsResult,
+    meetingsResult,
+    calendarEventsResult,
+  ] =
     await Promise.all([
       supabase
         .from("tasks")
@@ -93,13 +106,18 @@ export default async function TasksPage() {
         .select("id, title")
         .order("date", { ascending: false })
         .returns<Meeting[]>(),
+      supabase
+        .from("calendar_events")
+        .select("task_id, google_event_id, synced_at")
+        .returns<CalendarEvent[]>(),
     ]);
 
   const firstError =
     tasksResult.error ||
     peopleResult.error ||
     organizationsResult.error ||
-    meetingsResult.error;
+    meetingsResult.error ||
+    calendarEventsResult.error;
 
   if (firstError) {
     throw new Error(firstError.message);
@@ -109,6 +127,10 @@ export default async function TasksPage() {
   const people = peopleResult.data || [];
   const organizations = organizationsResult.data || [];
   const meetings = meetingsResult.data || [];
+  const calendarEvents = calendarEventsResult.data || [];
+  const calendarByTaskId = new Map(
+    calendarEvents.map((event) => [event.task_id, event]),
+  );
   const canManage = profile?.role !== "visualizador";
 
   return (
@@ -232,132 +254,157 @@ export default async function TasksPage() {
                 <th className="px-4 py-3 text-left font-semibold">Horario</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
                 <th className="px-4 py-3 text-left font-semibold">Reuniao</th>
+                <th className="px-4 py-3 text-left font-semibold">Calendario</th>
                 <th className="px-4 py-3 text-left font-semibold">Acoes</th>
               </tr>
             </thead>
             <tbody>
               {tasks.length ? (
-                tasks.map((task) => (
-                  <tr key={task.id} className="border-b border-[var(--line)] last:border-0">
-                    <td className="px-4 py-3">
-                      {canManage ? (
-                        <form action={updateTaskAction} className="flex flex-wrap items-center gap-2">
-                          <input type="hidden" name="id" value={task.id} />
-                          <input
-                            name="title"
-                            defaultValue={task.title}
-                            required
-                            className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
-                          />
-                          <input
-                            name="description"
-                            defaultValue={task.description || ""}
-                            className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
-                          />
-                          <select
-                            name="owner_person_id"
-                            defaultValue={task.owner_person_id}
-                            className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
-                          >
-                            {people.map((person) => (
-                              <option key={person.id} value={person.id}>
-                                {person.name}
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            name="organization_id"
-                            defaultValue={task.organization_id}
-                            className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
-                          >
-                            {organizations.map((organization) => (
-                              <option key={organization.id} value={organization.id}>
-                                {organization.name}
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            name="status"
-                            defaultValue={task.status}
-                            className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
-                          >
-                            {statusOptions.map((status) => (
-                              <option key={status} value={status}>
-                                {statusLabel(status)}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            type="date"
-                            name="due_date"
-                            defaultValue={task.due_date}
-                            required
-                            className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
-                          />
-                          <input
-                            type="time"
-                            name="due_time"
-                            defaultValue={task.due_time || ""}
-                            className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
-                          />
-                          <select
-                            name="meeting_id"
-                            defaultValue={task.meeting_id || ""}
-                            className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
-                          >
-                            <option value="">Sem reuniao</option>
-                            {meetings.map((meeting) => (
-                              <option key={meeting.id} value={meeting.id}>
-                                {meeting.title}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="submit"
-                            className="rounded-md border border-[var(--line)] px-2 py-1.5 text-xs font-medium"
-                          >
-                            Salvar
-                          </button>
-                        </form>
-                      ) : (
-                        task.title
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {people.find((person) => person.id === task.owner_person_id)?.name || "-"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {organizations.find((organization) => organization.id === task.organization_id)
-                        ?.name || "-"}
-                    </td>
-                    <td className="px-4 py-3">{task.due_date}</td>
-                    <td className="px-4 py-3">{task.due_time || "-"}</td>
-                    <td className="px-4 py-3">{statusLabel(task.status)}</td>
-                    <td className="px-4 py-3">
-                      {task.meeting_id
-                        ? meetings.find((meeting) => meeting.id === task.meeting_id)?.title || "-"
-                        : "-"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {canManage ? (
-                        <form action={deleteTaskAction}>
-                          <input type="hidden" name="id" value={task.id} />
-                          <button
-                            type="submit"
-                            className="rounded-md border border-red-200 px-2 py-1.5 text-xs font-medium text-red-700"
-                          >
-                            Remover
-                          </button>
-                        </form>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
-                  </tr>
-                ))
+                tasks.map((task) => {
+                  const syncedEvent = calendarByTaskId.get(task.id);
+                  return (
+                    <tr key={task.id} className="border-b border-[var(--line)] last:border-0">
+                      <td className="px-4 py-3">
+                        {canManage ? (
+                          <form action={updateTaskAction} className="flex flex-wrap items-center gap-2">
+                            <input type="hidden" name="id" value={task.id} />
+                            <input
+                              name="title"
+                              defaultValue={task.title}
+                              required
+                              className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                            />
+                            <input
+                              name="description"
+                              defaultValue={task.description || ""}
+                              className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                            />
+                            <select
+                              name="owner_person_id"
+                              defaultValue={task.owner_person_id}
+                              className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                            >
+                              {people.map((person) => (
+                                <option key={person.id} value={person.id}>
+                                  {person.name}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              name="organization_id"
+                              defaultValue={task.organization_id}
+                              className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                            >
+                              {organizations.map((organization) => (
+                                <option key={organization.id} value={organization.id}>
+                                  {organization.name}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              name="status"
+                              defaultValue={task.status}
+                              className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                            >
+                              {statusOptions.map((status) => (
+                                <option key={status} value={status}>
+                                  {statusLabel(status)}
+                                </option>
+                              ))}
+                            </select>
+                            <input
+                              type="date"
+                              name="due_date"
+                              defaultValue={task.due_date}
+                              required
+                              className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                            />
+                            <input
+                              type="time"
+                              name="due_time"
+                              defaultValue={task.due_time || ""}
+                              className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                            />
+                            <select
+                              name="meeting_id"
+                              defaultValue={task.meeting_id || ""}
+                              className="rounded-md border border-[var(--line)] bg-white px-2 py-1.5 text-sm"
+                            >
+                              <option value="">Sem reuniao</option>
+                              {meetings.map((meeting) => (
+                                <option key={meeting.id} value={meeting.id}>
+                                  {meeting.title}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="submit"
+                              className="rounded-md border border-[var(--line)] px-2 py-1.5 text-xs font-medium"
+                            >
+                              Salvar
+                            </button>
+                          </form>
+                        ) : (
+                          task.title
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {people.find((person) => person.id === task.owner_person_id)?.name || "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {organizations.find((organization) => organization.id === task.organization_id)
+                          ?.name || "-"}
+                      </td>
+                      <td className="px-4 py-3">{task.due_date}</td>
+                      <td className="px-4 py-3">{task.due_time || "-"}</td>
+                      <td className="px-4 py-3">{statusLabel(task.status)}</td>
+                      <td className="px-4 py-3">
+                        {task.meeting_id
+                          ? meetings.find((meeting) => meeting.id === task.meeting_id)?.title || "-"
+                          : "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {syncedEvent ? (
+                          <p className="text-xs text-emerald-700">
+                            Sincronizada em{" "}
+                            {new Date(syncedEvent.synced_at).toLocaleString("pt-BR")}
+                          </p>
+                        ) : (
+                          <p className="text-xs text-[var(--muted)]">Nao sincronizada</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {canManage ? (
+                          <div className="flex flex-wrap gap-2">
+                            <form action={syncTaskCalendarAction}>
+                              <input type="hidden" name="task_id" value={task.id} />
+                              <button
+                                type="submit"
+                                className="rounded-md border border-[var(--line)] px-2 py-1.5 text-xs font-medium"
+                              >
+                                Sincronizar
+                              </button>
+                            </form>
+                            <form action={deleteTaskAction}>
+                              <input type="hidden" name="id" value={task.id} />
+                              <button
+                                type="submit"
+                                className="rounded-md border border-red-200 px-2 py-1.5 text-xs font-medium text-red-700"
+                              >
+                                Remover
+                              </button>
+                            </form>
+                          </div>
+                        ) : (
+                          "-"
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td className="px-4 py-6 muted-text" colSpan={8}>
+                  <td className="px-4 py-6 muted-text" colSpan={9}>
                     Nenhuma atividade cadastrada ainda.
                   </td>
                 </tr>

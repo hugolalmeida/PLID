@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function readValue(formData: FormData, key: string) {
@@ -18,11 +19,15 @@ export async function createMeetingAction(formData: FormData) {
     throw new Error("Titulo e data sao obrigatorios.");
   }
 
-  const { error } = await supabase.from("meetings").insert({
-    title,
-    date,
-    notes: notes || null,
-  });
+  const { data, error } = await supabase
+    .from("meetings")
+    .insert({
+      title,
+      date,
+      notes: notes || null,
+    })
+    .select("id")
+    .single();
 
   if (error) {
     throw new Error(error.message);
@@ -30,6 +35,7 @@ export async function createMeetingAction(formData: FormData) {
 
   revalidatePath("/meetings");
   revalidatePath("/tasks");
+  redirect(`/meetings/${data.id}/registro`);
 }
 
 export async function updateMeetingAction(formData: FormData) {
@@ -77,4 +83,3 @@ export async function deleteMeetingAction(formData: FormData) {
   revalidatePath("/meetings");
   revalidatePath("/tasks");
 }
-

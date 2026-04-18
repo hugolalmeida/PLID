@@ -79,6 +79,11 @@ using (
 
 ## Teste rapido
 1. Execute o SQL acima.
-2. Abra `/tasks` e confirme campo `Horario` disponivel em criar/editar.
-3. Verifique no Table Editor que `tasks` agora possui `due_time`.
-
+2. Configure variaveis no `.env.local`:
+   - `GOOGLE_OAUTH_CLIENT_ID`
+   - `GOOGLE_OAUTH_CLIENT_SECRET`
+   - `GOOGLE_OAUTH_REFRESH_TOKEN`
+   - `GOOGLE_CALENDAR_ID` (ex.: `primary`)
+   - `GOOGLE_CALENDAR_TIMEZONE` (ex.: `America/Sao_Paulo`)
+3. Abra `/tasks`, confirme campo `Horario` e use o botao `Sincronizar`.
+4. Verifique em `calendar_events` se `google_event_id` e `synced_at` foram preenchidos.
