@@ -15,10 +15,21 @@ end $$;
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
+  email text,
   role public.user_role not null default 'visualizador',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists email text;
+
+-- sincroniza e-mail dos usuarios ja existentes
+update public.profiles p
+set email = u.email
+from auth.users u
+where u.id = p.id
+  and (p.email is null or p.email = '');
 
 alter table public.profiles enable row level security;
 
@@ -46,8 +57,8 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, full_name)
-  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', ''));
+  insert into public.profiles (id, full_name, email)
+  values (new.id, coalesce(new.raw_user_meta_data->>'full_name', ''), new.email);
   return new;
 end;
 $$;

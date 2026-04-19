@@ -8,12 +8,16 @@ begin
   if not exists (select 1 from pg_type where typname = 'task_status') then
     create type public.task_status as enum ('todo', 'in_progress', 'done', 'blocked');
   end if;
+  if not exists (select 1 from pg_type where typname = 'meeting_status') then
+    create type public.meeting_status as enum ('todo', 'in_progress', 'done');
+  end if;
 end $$;
 
 create table if not exists public.meetings (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   date date not null,
+  status public.meeting_status not null default 'todo',
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -22,18 +26,25 @@ create table if not exists public.meetings (
 alter table public.meetings
   add column if not exists minutes text;
 
+alter table public.meetings
+  add column if not exists status public.meeting_status not null default 'todo';
+
 create table if not exists public.tasks (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   description text,
   owner_person_id uuid not null references public.people(id) on delete restrict,
   organization_id uuid not null references public.organizations(id) on delete restrict,
+  created_by uuid references public.profiles(id) on delete set null,
   status public.task_status not null default 'todo',
   due_date date not null,
   meeting_id uuid references public.meetings(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.tasks
+  add column if not exists created_by uuid references public.profiles(id) on delete set null;
 
 alter table public.meetings enable row level security;
 alter table public.tasks enable row level security;

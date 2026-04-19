@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { logAuditEvent } from "@/lib/audit/log-event";
 
 function readValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -57,7 +58,17 @@ export async function createGoalUpdateAction(formData: FormData) {
     throw new Error(goalError.message);
   }
 
+  await logAuditEvent(supabase, {
+    entityType: "goal",
+    entityId: goalId,
+    action: "update",
+    payload: {
+      source: "goal_updates",
+      updateNote,
+      currentValue,
+    },
+  });
+
   revalidatePath(`/goals/${goalId}`);
   revalidatePath("/goals");
 }
-

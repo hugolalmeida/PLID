@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { logAuditEvent } from "@/lib/audit/log-event";
 
 function readValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -14,28 +15,52 @@ export async function createMeetingAction(formData: FormData) {
   const title = readValue(formData, "title");
   const date = readValue(formData, "date");
   const notes = readValue(formData, "notes");
+  const status = readValue(formData, "status") || "todo";
 
   if (!title || !date) {
-    throw new Error("Titulo e data sao obrigatorios.");
+    redirect("/meetings?create=error&message=Titulo%20e%20data%20sao%20obrigatorios.");
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("meetings")
     .insert({
       title,
       date,
       notes: notes || null,
+      status,
     })
     .select("id")
     .single();
 
-  if (error) {
-    throw new Error(error.message);
+  if (error && error.message.toLowerCase().includes("status")) {
+    const fallback = await supabase
+      .from("meetings")
+      .insert({
+        title,
+        date,
+        notes: notes || null,
+      })
+      .select("id")
+      .single();
+
+    data = fallback.data;
+    error = fallback.error;
   }
+
+  if (error) {
+    redirect(`/meetings?create=error&message=${encodeURIComponent(error.message)}`);
+  }
+
+  await logAuditEvent(supabase, {
+    entityType: "meeting",
+    entityId: data.id,
+    action: "create",
+    payload: { title, date, notes: notes || null, status },
+  });
 
   revalidatePath("/meetings");
   revalidatePath("/tasks");
-  redirect(`/meetings/${data.id}/registro`);
+  redirect(`/meetings/${data.id}/registro?create=success&message=Reuniao%20criada%20com%20sucesso.`);
 }
 
 export async function updateMeetingAction(formData: FormData) {
@@ -44,26 +69,53 @@ export async function updateMeetingAction(formData: FormData) {
   const title = readValue(formData, "title");
   const date = readValue(formData, "date");
   const notes = readValue(formData, "notes");
+  const status = readValue(formData, "status") || "todo";
+  const returnPath = readValue(formData, "return_path");
 
   if (!id || !title || !date) {
     throw new Error("ID, titulo e data sao obrigatorios.");
   }
 
-  const { error } = await supabase
+  let { error } = await supabase
     .from("meetings")
     .update({
       title,
       date,
       notes: notes || null,
+      status,
     })
     .eq("id", id);
+
+  if (error && error.message.toLowerCase().includes("status")) {
+    const fallback = await supabase
+      .from("meetings")
+      .update({
+        title,
+        date,
+        notes: notes || null,
+      })
+      .eq("id", id);
+
+    error = fallback.error;
+  }
 
   if (error) {
     throw new Error(error.message);
   }
 
+  await logAuditEvent(supabase, {
+    entityType: "meeting",
+    entityId: id,
+    action: "update",
+    payload: { title, date, notes: notes || null, status },
+  });
+
   revalidatePath("/meetings");
   revalidatePath("/tasks");
+
+  if (returnPath) {
+    redirect(returnPath);
+  }
 }
 
 export async function deleteMeetingAction(formData: FormData) {
@@ -79,6 +131,12 @@ export async function deleteMeetingAction(formData: FormData) {
   if (error) {
     throw new Error(error.message);
   }
+
+  await logAuditEvent(supabase, {
+    entityType: "meeting",
+    entityId: id,
+    action: "delete",
+  });
 
   revalidatePath("/meetings");
   revalidatePath("/tasks");

@@ -38,7 +38,15 @@ npm run dev
 - Setup de reunioes e atividades no Supabase: `docs/SUPABASE_MEETINGS_TASKS_SETUP.md`
 - Setup para calendar_events e horario em tasks: `docs/SUPABASE_CALENDAR_EVENTS_SETUP.md`
 - Setup de metas e historico no Supabase: `docs/SUPABASE_GOALS_SETUP.md`
+- Setup de logs de notificacoes: `docs/SUPABASE_NOTIFICATIONS_SETUP.md`
+- Lembrete de evolucao dos e-mails: `docs/EMAIL_NOTIFICATIONS_REMINDER.md`
 - Seed de exemplo para testar organograma: `docs/SUPABASE_ORGANOGRAMA_SEED_EXEMPLO.md`
+- Seed visual para dashboard: `docs/SUPABASE_DASHBOARD_VISUAL_SEED.md`
+
+## Automacao de notificacoes
+- Endpoint de job: `/api/jobs/notifications`
+- Cron de deploy configurado em `vercel.json` (a cada 6 horas)
+- Requer `CRON_SECRET` no ambiente do deploy
 
 ## Stack
 - Next.js (App Router)

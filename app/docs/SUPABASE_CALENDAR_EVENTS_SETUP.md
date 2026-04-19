@@ -85,5 +85,6 @@ using (
    - `GOOGLE_OAUTH_REFRESH_TOKEN`
    - `GOOGLE_CALENDAR_ID` (ex.: `primary`)
    - `GOOGLE_CALENDAR_TIMEZONE` (ex.: `America/Sao_Paulo`)
-3. Abra `/tasks`, confirme campo `Horario` e use o botao `Sincronizar`.
+3. Abra `/tasks` e crie/edite uma atividade: o sistema tenta sincronizar automaticamente.
 4. Verifique em `calendar_events` se `google_event_id` e `synced_at` foram preenchidos.
+5. Se necessario, use o botao `Sincronizar` como reprocessamento manual.

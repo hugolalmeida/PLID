@@ -1,3 +1,5 @@
+import { getGoogleAccessToken, requiredGoogleEnv } from "./oauth";
+
 type SyncTaskPayload = {
   title: string;
   description: string | null;
@@ -13,14 +15,6 @@ type ExistingCalendarEvent = {
   googleEventId: string;
   calendarId: string;
 } | null;
-
-function requiredEnv(name: string) {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing env var: ${name}`);
-  }
-  return value;
-}
 
 function normalizeTime(value: string | null) {
   if (!value) return "09:00";
@@ -49,39 +43,6 @@ function addDays(date: string, days: number) {
   const base = new Date(`${date}T00:00:00`);
   base.setDate(base.getDate() + days);
   return base.toISOString().slice(0, 10);
-}
-
-async function getAccessToken() {
-  const clientId = requiredEnv("GOOGLE_OAUTH_CLIENT_ID");
-  const clientSecret = requiredEnv("GOOGLE_OAUTH_CLIENT_SECRET");
-  const refreshToken = requiredEnv("GOOGLE_OAUTH_REFRESH_TOKEN");
-
-  const body = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    refresh_token: refreshToken,
-    grant_type: "refresh_token",
-  });
-
-  const response = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body,
-    cache: "no-store",
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Google OAuth token error: ${text}`);
-  }
-
-  const data = (await response.json()) as { access_token?: string };
-  if (!data.access_token) {
-    throw new Error("Google OAuth response missing access_token.");
-  }
-  return data.access_token;
 }
 
 function buildEventBody(payload: SyncTaskPayload) {
@@ -116,8 +77,8 @@ export async function syncTaskToGoogleCalendar(
   payload: SyncTaskPayload,
   existing: ExistingCalendarEvent,
 ) {
-  const accessToken = await getAccessToken();
-  const calendarId = existing?.calendarId || requiredEnv("GOOGLE_CALENDAR_ID");
+  const accessToken = await getGoogleAccessToken();
+  const calendarId = existing?.calendarId || requiredGoogleEnv("GOOGLE_CALENDAR_ID");
   const encodedCalendarId = encodeURIComponent(calendarId);
   const body = buildEventBody(payload);
 

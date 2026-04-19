@@ -1,38 +1,47 @@
 # PLID - Handoff de Projeto (Status + Proximos Passos)
 
 ## 1. Resumo Executivo
+
 PLID e um sistema web para lideranca de igreja com foco em estrutura organizacional, acompanhamento de atividades e governanca por perfis.
 
 Objetivo desta entrega: registrar tudo o que ja foi implementado e o que falta, para reduzir custo de contexto nas proximas sessoes.
 
 ## 2. Stack e Arquitetura
+
 - Frontend: Next.js (App Router) + React + TypeScript
 - Backend: Supabase (Postgres + Auth + RLS)
 - Deploy alvo: Vercel
 - Integracoes planejadas: Google Calendar API + Gmail API
 
 Arquitetura atual:
+
 - Rotas server-first no App Router
 - Server Actions para CRUD
 - Controle de acesso por perfil via `profiles.role`
 
 ## 3. Decisao de Ambiente (Importante)
+
 O projeto de execucao local deve rodar fora do OneDrive:
+
 - Recomendado: `C:\dev\plid-app`
 
 Motivo:
+
 - Em `OneDrive\Desktop`, o Next.js apresentou erros de permissao (`EPERM`, lock em `.next`).
 
 Fluxo atual:
+
 - Pasta fonte: `C:\Users\hugog\OneDrive\Área de Trabalho\PLID\app`
 - Pasta de execucao: `C:\dev\plid-app`
 
 Comando de sincronizacao:
+
 ```powershell
 robocopy "C:\Users\hugog\OneDrive\Área de Trabalho\PLID\app" "C:\dev\plid-app" /E /XD node_modules .next /XF .env.local
 ```
 
 ## 4. Modulos Ja Implementados
+
 - Autenticacao:
   - Login com Supabase
   - Middleware de protecao de rota
@@ -43,7 +52,7 @@ robocopy "C:\Users\hugog\OneDrive\Área de Trabalho\PLID\app" "C:\dev\plid-app" 
 - Organizacoes (CRUD): `/organizations`
 - Cargos (CRUD): `/roles`
 - Pessoas (CRUD): `/people`
-- Vinculos pessoa x cargo (CRUD): `/person-roles`
+- Vinculo inicial pessoa x cargo integrado ao cadastro de `/people`
 - Organograma: `/organograma`
   - Visao Geral (mapa por niveis)
   - Visao Detalhada (arvore clicavel + painel lateral)
@@ -52,62 +61,97 @@ robocopy "C:\Users\hugog\OneDrive\Área de Trabalho\PLID\app" "C:\dev\plid-app" 
   - Registro dedicado em `/meetings/[id]/registro`
 - Atividades (CRUD): `/tasks`
   - Com responsavel, organizacao, status, prazo, horario e reuniao vinculada
-  - Sincronizacao manual com Google Calendar por tarefa
+  - Sincronizacao automatica com Google Calendar no create/update
+  - Botao manual de re-sincronizacao por tarefa
+- Notificacoes: `/notifications`
+  - Varredura manual para gerar alertas de prazo e tarefas vencidas sem conclusao
+  - Envio manual da fila por e-mail (Gmail API)
+  - Endpoint de job para automacao: `/api/jobs/notifications`
+  - Cron de deploy configurado em `vercel.json` (a cada 6 horas)
+  - Retentativa de envio para `failed` (3 tentativas, cooldown 30 min)
+  - Observabilidade na tela (contadores e ultimo erro)
+  - Log de eventos em `notifications_log`
 - Metas (CRUD): `/goals`
   - Detalhe da meta com historico: `/goals/[id]`
+- Exportacao:
+  - CSV em `/tasks`, `/meetings`, `/goals`
+  - PDF via impressao do navegador nos mesmos modulos
+- Auditoria:
+  - trilha de create/update/delete/status_update/sync em `audit_logs`
+  - tela de consulta em `/auditoria`
 
 ## 5. Scripts SQL Ja Criados
+
 Documentos em `docs/`:
+
 - `SUPABASE_AUTH_SETUP.md`
 - `SUPABASE_ORGANIZATIONS_SETUP.md`
 - `SUPABASE_ROLES_PEOPLE_SETUP.md`
 - `SUPABASE_MEETINGS_TASKS_SETUP.md`
 - `SUPABASE_CALENDAR_EVENTS_SETUP.md`
 - `SUPABASE_GOALS_SETUP.md`
+- `SUPABASE_NOTIFICATIONS_SETUP.md`
+- `SUPABASE_AUDIT_SETUP.md`
+- `EMAIL_NOTIFICATIONS_REMINDER.md`
 - `SUPABASE_ORGANOGRAMA_SEED_EXEMPLO.md`
 
 ## 6. Estado Atual de Backend
+
 Ja pronto:
+
 - Estrutura base de dados para organizacao, pessoas, cargos, reunioes e tarefas
 - RLS e policies para leitura autenticada e escrita por perfil autorizado
 - `due_time` em `tasks`
 - Tabela `calendar_events` preparada
-- Sincronizacao manual task -> Google Calendar com upsert em `calendar_events`
+- Sincronizacao automatica task -> Google Calendar com upsert em `calendar_events`
+- Estrutura `notifications_log` com regras de varredura
+- Envio de e-mail via Gmail API (status `queued`, `sent`, `failed`, `skipped`)
+- Endpoint automatico `/api/jobs/notifications` para varredura + envio
+- `vercel.json` com cron a cada 6 horas
 - Estrutura de metas (`goals`) e historico (`goal_updates`)
 - Campo `minutes` em `meetings` para documento/registro da reuniao
 - Fluxo de registro separado da criacao rapida de reunioes
+- Exportacao CSV + PDF (impressao) em atividades, reunioes e metas
+- Auditoria de mudancas criticas com insercao em `audit_logs`
 
 Falta:
-- Automacao de sincronizacao no fluxo de criacao/edicao (sem botao manual)
-- Notificacoes por e-mail e regras de cobranca automatica
-- Exportacao (PDF/CSV)
-- Auditoria/historico de alteracoes
+
+- Configurar variavel `CRON_SECRET` no ambiente de deploy (Vercel)
+- Tela dedicada para consulta/filtragem de auditoria (atualmente somente tabela/log no banco)
 
 ## 7. Pontos Funcionais Pendentes (Produto)
+
 Alta prioridade:
-1. Automatizar sincronizacao Google Calendar na criacao/edicao de atividade
-2. Modulo de notificacoes (2 dias antes + tarefa sem atualizacao)
-3. Dashboard com indicadores reais (atrasadas, concluidas, por ministerio)
+
+1. Configurar variavel `CRON_SECRET` no ambiente de deploy (Vercel)
+2. Dashboard com indicadores reais (atrasadas, concluidas, por ministerio)
+3. Revisar politicas e trilha de auditoria para mudancas criticas
 
 Media prioridade:
+
 1. Exportacao de relatorios
 2. Integracao de metas com dashboard executivo
 3. Melhorar editor do documento da reuniao (markdown ou texto rico)
 
 ## 8. Modulo de Metas (Status)
+
 Ja implementado:
+
 - Cadastro e edicao de metas em `/goals`
 - Status de meta: `draft`, `active`, `at_risk`, `achieved`, `cancelled`
 - Historico de atualizacoes em `/goals/[id]`
 - Atualizacao de progresso com registro de autor e data
 
 Pendencias do modulo:
+
 - Filtros por status, periodo e organizacao
 - Metricas agregadas por ministerio
 - Widgets de metas no dashboard principal
 
 ## 9. Melhorias de Front-end (Backlog)
+
 Melhorias recomendadas para proxima rodada de UX:
+
 1. Sistema visual consistente:
    - padronizar espacamentos, estados de componentes e hierarquia tipografica
 2. Tabelas:
@@ -125,36 +169,44 @@ Melhorias recomendadas para proxima rodada de UX:
    - layout otimizado para uso durante reunioes
 
 ## 10. Itens Ja Mapeados para Refino Futuro
+
 - Reunioes: evoluir o documento da reuniao para texto rico ou markdown simples
 - Atividades: manter horario (ja adicionado) e evoluir para lembretes automáticos
 - Organograma: ampliar visao geral para leitura executiva em uma tela
 
 ## 11. Plano Sugerido para a Proxima Sessao
-1. Automatizar sincronizacao Google Calendar no fluxo de tarefas
+
+1. Validar cron em producao (Vercel) com `CRON_SECRET`
 2. Criar indicadores no dashboard (tarefas, metas, reunioes)
 3. Rodada de refinamento visual no frontend (priorizando tarefas, metas e organograma)
-4. Melhorar editor do documento da reuniao
+4. Planejar exportacao de relatorios (CSV/PDF)
 
 ## 12. Checklist de Retomada Rapida
+
 1. Sincronizar codigo para `C:\dev\plid-app`
 2. Garantir `.env.local` correto em `C:\dev\plid-app`
 3. Rodar SQLs pendentes no Supabase
 4. Executar:
+
 ```powershell
 cd C:\dev\plid-app
 npm run dev
 ```
+
 5. Validar rotas principais:
+
 - `/dashboard`
 - `/organograma`
 - `/meetings`
 - `/meetings/{id}/registro`
 - `/tasks`
+- `/notifications`
+- `/auditoria`
 - `/organizations`
 - `/roles`
 - `/people`
-- `/person-roles`
 - `/goals`
 
 ---
-Ultima atualizacao: 17/04/2026
+
+Ultima atualizacao: 18/04/2026

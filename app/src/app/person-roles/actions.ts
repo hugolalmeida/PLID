@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function readValue(formData: FormData, key: string) {
@@ -16,7 +17,7 @@ export async function createPersonRoleAction(formData: FormData) {
   const endDate = readValue(formData, "end_date");
 
   if (!personId || !roleId) {
-    throw new Error("Pessoa e cargo sao obrigatorios.");
+    redirect("/person-roles?create=error&message=Pessoa%20e%20cargo%20sao%20obrigatorios.");
   }
 
   const { error } = await supabase.from("person_roles").insert({
@@ -27,10 +28,11 @@ export async function createPersonRoleAction(formData: FormData) {
   });
 
   if (error) {
-    throw new Error(error.message);
+    redirect(`/person-roles?create=error&message=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath("/person-roles");
+  redirect("/person-roles?create=success&message=Vinculo%20criado%20com%20sucesso.");
 }
 
 export async function updatePersonRoleAction(formData: FormData) {
@@ -40,6 +42,7 @@ export async function updatePersonRoleAction(formData: FormData) {
   const roleId = readValue(formData, "role_id");
   const startDate = readValue(formData, "start_date");
   const endDate = readValue(formData, "end_date");
+  const returnPath = readValue(formData, "return_path");
 
   if (!id || !personId || !roleId) {
     throw new Error("ID, pessoa e cargo sao obrigatorios.");
@@ -60,11 +63,16 @@ export async function updatePersonRoleAction(formData: FormData) {
   }
 
   revalidatePath("/person-roles");
+
+  if (returnPath) {
+    redirect(returnPath);
+  }
 }
 
 export async function deletePersonRoleAction(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const id = readValue(formData, "id");
+  const returnPath = readValue(formData, "return_path");
 
   if (!id) {
     throw new Error("ID obrigatorio.");
@@ -77,4 +85,8 @@ export async function deletePersonRoleAction(formData: FormData) {
   }
 
   revalidatePath("/person-roles");
+
+  if (returnPath) {
+    redirect(returnPath);
+  }
 }
