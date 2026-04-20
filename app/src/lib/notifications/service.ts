@@ -8,6 +8,7 @@ type TaskForNotification = {
   due_date: string;
   owner_person_id: string;
   created_by: string | null;
+  workspace_id: string;
 };
 
 type NotificationType = "due_reminder_2d" | "overdue_status_2d";
@@ -18,6 +19,7 @@ type NotificationLogQueued = {
   task_id: string;
   type: NotificationType;
   recipient_email: string | null;
+  workspace_id: string | null;
   payload: Record<string, string | number | boolean | null> | null;
   status: NotificationStatus;
 };
@@ -78,6 +80,7 @@ function canRetry(log: NotificationLogQueued, now: Date) {
 
 export async function runNotificationsSweep(
   supabase: SupabaseClient,
+  workspaceId?: string | null,
   now = new Date(),
 ) {
   const twoDaysAhead = new Date(now);
@@ -86,22 +89,35 @@ export async function runNotificationsSweep(
   const twoDaysAgo = new Date(now);
   twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
+  let tasksQuery = supabase
+    .from("tasks")
+    .select("id, title, status, due_date, owner_person_id, created_by, workspace_id")
+    .neq("status", "done");
+  if (workspaceId) {
+    tasksQuery = tasksQuery.eq("workspace_id", workspaceId);
+  }
+
+  let peopleQuery = supabase.from("people").select("id, email");
+  if (workspaceId) {
+    peopleQuery = peopleQuery.eq("workspace_id", workspaceId);
+  }
+
+  let logsQuery = supabase
+    .from("notifications_log")
+    .select("task_id, type, sent_at")
+    .gte("sent_at", `${isoDate(now)}T00:00:00.000Z`);
+  if (workspaceId) {
+    logsQuery = logsQuery.eq("workspace_id", workspaceId);
+  }
+
   const [tasksResult, peopleResult, profilesResult, logsResult] = await Promise.all([
-    supabase
-      .from("tasks")
-      .select("id, title, status, due_date, owner_person_id, created_by")
-      .neq("status", "done")
-      .returns<TaskForNotification[]>(),
-    supabase.from("people").select("id, email").returns<{ id: string; email: string | null }[]>(),
+    tasksQuery.returns<TaskForNotification[]>(),
+    peopleQuery.returns<{ id: string; email: string | null }[]>(),
     supabase
       .from("profiles")
       .select("id, full_name, email")
       .returns<{ id: string; full_name: string | null; email: string | null }[]>(),
-    supabase
-      .from("notifications_log")
-      .select("task_id, type, sent_at")
-      .gte("sent_at", `${isoDate(now)}T00:00:00.000Z`)
-      .returns<{ task_id: string; type: NotificationType; sent_at: string }[]>(),
+    logsQuery.returns<{ task_id: string; type: NotificationType; sent_at: string }[]>(),
   ]);
 
   if (tasksResult.error?.message?.includes("created_by")) {
@@ -134,6 +150,7 @@ export async function runNotificationsSweep(
 
   const inserts: Array<{
     task_id: string;
+    workspace_id: string;
     type: NotificationType;
     recipient_email: string | null;
     sent_at: string;
@@ -154,6 +171,7 @@ export async function runNotificationsSweep(
     ) {
       inserts.push({
         task_id: task.id,
+        workspace_id: task.workspace_id,
         type: "due_reminder_2d",
         recipient_email: ownerRecipient,
         sent_at: now.toISOString(),
@@ -172,6 +190,7 @@ export async function runNotificationsSweep(
     ) {
       inserts.push({
         task_id: task.id,
+        workspace_id: task.workspace_id,
         type: "overdue_status_2d",
         recipient_email: creatorRecipient,
         sent_at: now.toISOString(),
@@ -199,15 +218,20 @@ export async function runNotificationsSweep(
 
 export async function sendQueuedNotifications(
   supabase: SupabaseClient,
+  workspaceId?: string | null,
 ) {
   const now = new Date();
-  const { data, error } = await supabase
+  let queuedQuery = supabase
     .from("notifications_log")
-    .select("id, task_id, type, recipient_email, payload, status")
+    .select("id, task_id, type, recipient_email, workspace_id, payload, status")
     .in("status", ["queued", "failed"])
     .order("created_at", { ascending: true })
-    .limit(100)
-    .returns<NotificationLogQueued[]>();
+    .limit(100);
+  if (workspaceId) {
+    queuedQuery = queuedQuery.eq("workspace_id", workspaceId);
+  }
+
+  const { data, error } = await queuedQuery.returns<NotificationLogQueued[]>();
 
   if (error) {
     throw new Error(error.message);
@@ -227,7 +251,7 @@ export async function sendQueuedNotifications(
     const attempts = getAttempts(log) + 1;
 
     if (!log.recipient_email) {
-      const { error: skippedError } = await supabase
+      let skippedUpdate = supabase
         .from("notifications_log")
         .update({
           status: "skipped",
@@ -239,6 +263,10 @@ export async function sendQueuedNotifications(
           },
         })
         .eq("id", log.id);
+      if (log.workspace_id) {
+        skippedUpdate = skippedUpdate.eq("workspace_id", log.workspace_id);
+      }
+      const { error: skippedError } = await skippedUpdate;
 
       if (skippedError) {
         throw new Error(skippedError.message);
@@ -254,7 +282,7 @@ export async function sendQueuedNotifications(
         body: buildBody(log),
       });
 
-      const { error: sentError } = await supabase
+      let sentUpdate = supabase
         .from("notifications_log")
         .update({
           status: "sent",
@@ -268,6 +296,10 @@ export async function sendQueuedNotifications(
           },
         })
         .eq("id", log.id);
+      if (log.workspace_id) {
+        sentUpdate = sentUpdate.eq("workspace_id", log.workspace_id);
+      }
+      const { error: sentError } = await sentUpdate;
 
       if (sentError) {
         throw new Error(sentError.message);
@@ -277,7 +309,7 @@ export async function sendQueuedNotifications(
       const errorMessage =
         dispatchError instanceof Error ? dispatchError.message.slice(0, 300) : "Erro desconhecido";
 
-      const { error: failedError } = await supabase
+      let failedUpdate = supabase
         .from("notifications_log")
         .update({
           status: "failed",
@@ -289,6 +321,10 @@ export async function sendQueuedNotifications(
           },
         })
         .eq("id", log.id);
+      if (log.workspace_id) {
+        failedUpdate = failedUpdate.eq("workspace_id", log.workspace_id);
+      }
+      const { error: failedError } = await failedUpdate;
 
       if (failedError) {
         throw new Error(failedError.message);

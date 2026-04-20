@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createGoalUpdateAction } from "./actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { type UserRole } from "@/lib/auth/roles";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 type Profile = {
   role: UserRole;
@@ -59,6 +60,7 @@ export default async function GoalDetailPage({
   if (!user) {
     redirect("/login");
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -73,16 +75,19 @@ export default async function GoalDetailPage({
         "id, title, description, target_value, current_value, status, period_start, period_end",
       )
       .eq("id", id)
+      .eq("workspace_id", workspaceId)
       .maybeSingle<Goal>(),
     supabase
       .from("goal_updates")
       .select("id, update_note, current_value, created_by, created_at")
       .eq("goal_id", id)
+      .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false })
       .returns<GoalUpdate[]>(),
     supabase
       .from("people")
       .select("id, name")
+      .eq("workspace_id", workspaceId)
       .returns<Person[]>(),
   ]);
 
@@ -216,4 +221,3 @@ export default async function GoalDetailPage({
     </main>
   );
 }
-

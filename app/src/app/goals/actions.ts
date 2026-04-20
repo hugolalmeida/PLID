@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getEditableGoalStatus, type GoalStoredStatus } from "@/lib/goals/effective-status";
 import { logAuditEvent } from "@/lib/audit/log-event";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 function readValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -22,6 +23,9 @@ function readNumber(formData: FormData, key: string) {
 
 export async function createGoalAction(formData: FormData) {
   const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const title = readValue(formData, "title");
   const description = readValue(formData, "description");
   const organizationId = readValue(formData, "organization_id");
@@ -53,10 +57,18 @@ export async function createGoalAction(formData: FormData) {
   ) {
     redirect("/goals?create=error&message=Preencha%20todos%20os%20campos%20obrigatorios%20da%20meta.");
   }
+  if (!user) {
+    redirect("/login");
+  }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
+  }
 
   const { data, error } = await supabase
     .from("goals")
     .insert({
+      workspace_id: workspaceId,
       title,
       description: description || null,
       organization_id: organizationId,
@@ -128,6 +140,10 @@ export async function updateGoalAction(formData: FormData) {
   if (!user) {
     throw new Error("Usuario nao autenticado.");
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    throw new Error("Workspace ativo nao encontrado.");
+  }
 
   const { data: previousGoal, error: previousGoalError } = await supabase
     .from("goals")
@@ -135,6 +151,7 @@ export async function updateGoalAction(formData: FormData) {
       "title, description, organization_id, owner_person_id, period_start, period_end, target_value, current_value, status",
     )
     .eq("id", id)
+    .eq("workspace_id", workspaceId)
     .maybeSingle<{
       title: string;
       description: string | null;
@@ -164,7 +181,8 @@ export async function updateGoalAction(formData: FormData) {
       current_value: currentValue,
       status,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     throw new Error(error.message);
@@ -201,6 +219,7 @@ export async function updateGoalAction(formData: FormData) {
     if (changedFields.length) {
       const { error: historyError } = await supabase.from("goal_updates").insert({
         goal_id: id,
+        workspace_id: workspaceId,
         update_note: `Meta editada via tela de metas (${changedFields.join(", ")}).`,
         current_value: currentValue,
         created_by: user.id,
@@ -222,14 +241,28 @@ export async function updateGoalAction(formData: FormData) {
 
 export async function deleteGoalAction(formData: FormData) {
   const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const id = readValue(formData, "id");
   const returnPath = readValue(formData, "return_path");
 
   if (!id) {
     throw new Error("ID obrigatorio.");
   }
+  if (!user) {
+    throw new Error("Usuario nao autenticado.");
+  }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    throw new Error("Workspace ativo nao encontrado.");
+  }
 
-  const { error } = await supabase.from("goals").delete().eq("id", id);
+  const { error } = await supabase
+    .from("goals")
+    .delete()
+    .eq("id", id)
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     throw new Error(error.message);

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { type PageSearchParams } from "@/lib/ui/action-feedback";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 type AuditLog = {
   id: string;
@@ -88,10 +89,15 @@ export default async function AuditoriaPage({
   if (!user) {
     redirect("/login");
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
+  }
 
   const query = supabase
     .from("audit_logs")
     .select("id, entity_type, entity_id, action, actor_user_id, payload, created_at")
+    .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false })
     .limit(selectedLimit);
 

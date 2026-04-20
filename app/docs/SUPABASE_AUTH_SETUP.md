@@ -86,10 +86,15 @@ with check (auth.uid() = id);
 ```
 
 ## Teste rapido
-1. Crie um usuario em `Authentication > Users`.
-2. Defina senha para esse usuario.
-3. Abra `/login` no app e autentique.
+1. Abra `/login` e use a aba `Criar conta` para registrar um usuario.
+2. Se o projeto exigir confirmacao de e-mail, confirme o link enviado pelo Supabase.
+3. Volte para `/login`, use a aba `Entrar` e autentique.
 4. Verifique `/dashboard` exibindo e-mail/nome e papel.
+
+## Observacao de confirmacao por e-mail
+- Se quiser login imediato sem confirmar e-mail no MVP, desative:
+  `Authentication > Providers > Email > Confirm email`.
+- Em producao, mantenha confirmacao ativa por seguranca.
 
 ## Ajuste de papel
 Para promover um usuario:

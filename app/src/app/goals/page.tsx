@@ -15,6 +15,7 @@ import {
   getEditableGoalStatus,
   goalProgressPercent,
 } from "@/lib/goals/effective-status";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 type Profile = {
   role: UserRole;
@@ -142,6 +143,10 @@ export default async function GoalsPage({
   if (!user) {
     redirect("/login");
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -154,6 +159,7 @@ export default async function GoalsPage({
     .select(
       "id, title, description, organization_id, owner_person_id, period_start, period_end, target_value, current_value, status",
     )
+    .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false })
     .returns<Goal[]>();
 
@@ -166,11 +172,13 @@ export default async function GoalsPage({
     supabase
       .from("organizations")
       .select("id, name")
+      .eq("workspace_id", workspaceId)
       .order("name", { ascending: true })
       .returns<Organization[]>(),
     supabase
       .from("people")
       .select("id, name")
+      .eq("workspace_id", workspaceId)
       .order("name", { ascending: true })
       .returns<Person[]>(),
   ]);

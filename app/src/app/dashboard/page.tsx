@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-  signOutAction,
   updateGoalStatusQuickAction,
   updateMeetingStatusQuickAction,
   updateTaskStatusQuickAction,
@@ -10,6 +9,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { type UserRole } from "@/lib/auth/roles";
 import { getComputedGoalStatus, goalProgressPercent } from "@/lib/goals/effective-status";
 import { type PageSearchParams } from "@/lib/ui/action-feedback";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 type ProfileRow = {
   full_name: string | null;
@@ -149,6 +149,10 @@ export default async function DashboardPage({
   if (!user) {
     redirect("/login");
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -165,21 +169,25 @@ export default async function DashboardPage({
   const tasksOpenQuery = supabase
     .from("tasks")
     .select("*", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId)
     .neq("status", "done");
   const tasksOverdueQuery = supabase
     .from("tasks")
     .select("*", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId)
     .neq("status", "done")
     .lt("due_date", todayIso);
   const tasksDueWindowQuery = supabase
     .from("tasks")
     .select("*", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId)
     .neq("status", "done")
     .gte("due_date", todayIso)
     .lte("due_date", rangeEndIso);
   const goalsMetricsQuery = supabase
     .from("goals")
     .select("id, status, current_value, target_value, period_start, period_end")
+    .eq("workspace_id", workspaceId)
     .in("status", ["active", "at_risk"])
     .returns<
       Array<
@@ -192,6 +200,7 @@ export default async function DashboardPage({
   const tasksPreviewQuery = supabase
     .from("tasks")
     .select("id, title, due_date, status, organization_id")
+    .eq("workspace_id", workspaceId)
     .neq("status", "done")
     .gte("due_date", todayIso)
     .lte("due_date", rangeEndIso)
@@ -203,6 +212,7 @@ export default async function DashboardPage({
     .select(
       "id, title, status, current_value, target_value, period_start, period_end, organization_id",
     )
+    .eq("workspace_id", workspaceId)
     .in("status", ["active", "at_risk"])
     .order("period_end", { ascending: true })
     .limit(5)
@@ -235,6 +245,7 @@ export default async function DashboardPage({
     supabase
       .from("organizations")
       .select("id, name")
+      .eq("workspace_id", workspaceId)
       .order("name", { ascending: true })
       .returns<OrganizationRow[]>(),
   ]);
@@ -242,6 +253,7 @@ export default async function DashboardPage({
   const meetingsWithStatusResult = await supabase
     .from("meetings")
     .select("id, title, date, status")
+    .eq("workspace_id", workspaceId)
     .gte("date", todayIso)
     .lte("date", rangeEndIso)
     .order("date", { ascending: true })
@@ -258,6 +270,7 @@ export default async function DashboardPage({
     const meetingsFallbackResult = await supabase
       .from("meetings")
       .select("id, title, date")
+      .eq("workspace_id", workspaceId)
       .gte("date", todayIso)
       .lte("date", rangeEndIso)
       .order("date", { ascending: true })
@@ -332,7 +345,7 @@ export default async function DashboardPage({
               ) : null}
             </div>
           </div>
-          <form action={signOutAction}>
+          <form action="/api/auth/signout" method="post">
             <button
               className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm font-medium"
               type="submit"

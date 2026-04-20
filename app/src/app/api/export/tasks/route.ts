@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCsv } from "@/lib/export/csv";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 type TaskRow = {
   id: string;
@@ -23,6 +24,10 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    return NextResponse.json({ error: "Workspace not found" }, { status: 400 });
+  }
 
   const [tasksResult, peopleResult, organizationsResult, meetingsResult] =
     await Promise.all([
@@ -31,14 +36,24 @@ export async function GET() {
         .select(
           "id, title, description, owner_person_id, organization_id, status, due_date, due_time, meeting_id",
         )
+        .eq("workspace_id", workspaceId)
         .order("due_date", { ascending: true })
         .returns<TaskRow[]>(),
-      supabase.from("people").select("id, name").returns<Array<{ id: string; name: string }>>(),
+      supabase
+        .from("people")
+        .select("id, name")
+        .eq("workspace_id", workspaceId)
+        .returns<Array<{ id: string; name: string }>>(),
       supabase
         .from("organizations")
         .select("id, name")
+        .eq("workspace_id", workspaceId)
         .returns<Array<{ id: string; name: string }>>(),
-      supabase.from("meetings").select("id, title").returns<Array<{ id: string; title: string }>>(),
+      supabase
+        .from("meetings")
+        .select("id, title")
+        .eq("workspace_id", workspaceId)
+        .returns<Array<{ id: string; title: string }>>(),
     ]);
 
   const firstError =
@@ -94,4 +109,3 @@ export async function GET() {
     },
   });
 }
-

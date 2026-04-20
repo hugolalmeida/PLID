@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { type UserRole } from "@/lib/auth/roles";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 import { type PageSearchParams } from "@/lib/ui/action-feedback";
 import {
   runNotificationsSweepAction,
@@ -54,6 +55,7 @@ export default async function NotificationsPage({
   if (!user) {
     redirect("/login");
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
 
   const periodStart = new Date();
   periodStart.setDate(periodStart.getDate() - selectedDays);
@@ -68,6 +70,7 @@ export default async function NotificationsPage({
     supabase
       .from("notifications_log")
       .select("id, task_id, type, recipient_email, sent_at, status, payload")
+      .eq("workspace_id", workspaceId)
       .gte("sent_at", periodStartIso)
       .order("sent_at", { ascending: false })
       .limit(50)

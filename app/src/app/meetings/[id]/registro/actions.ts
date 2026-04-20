@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 function readValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -32,6 +33,9 @@ function buildMinutesFromSections({
 
 export async function updateMeetingRecordAction(formData: FormData) {
   const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const id = readValue(formData, "id");
   const minutesRaw = readValue(formData, "minutes");
   const highlights = readValue(formData, "highlights");
@@ -40,6 +44,13 @@ export async function updateMeetingRecordAction(formData: FormData) {
 
   if (!id) {
     throw new Error("ID da reuniao obrigatorio.");
+  }
+  if (!user) {
+    throw new Error("Usuario nao autenticado.");
+  }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    throw new Error("Workspace ativo nao encontrado.");
   }
 
   const minutes =
@@ -52,7 +63,8 @@ export async function updateMeetingRecordAction(formData: FormData) {
     .update({
       minutes: minutes || null,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     throw new Error(error.message);
@@ -90,8 +102,13 @@ export async function createMeetingTaskFromRecordAction(formData: FormData) {
   if (!user) {
     redirect(`/meetings/${meetingId}/registro?create=error&message=Usuario%20nao%20autenticado.`);
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
+  }
 
   const { error } = await supabase.from("tasks").insert({
+    workspace_id: workspaceId,
     title,
     description: description || null,
     owner_person_id: ownerPersonId,

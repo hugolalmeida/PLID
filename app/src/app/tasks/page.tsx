@@ -11,6 +11,7 @@ import { type UserRole } from "@/lib/auth/roles";
 import { readCreateFeedback, type PageSearchParams } from "@/lib/ui/action-feedback";
 import { CreateFeedbackBanner } from "@/components/ui/create-feedback-banner";
 import { ExportActions } from "@/components/ui/export-actions";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 type Profile = {
   role: UserRole;
@@ -135,6 +136,10 @@ export default async function TasksPage({
   if (!user) {
     redirect("/login");
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -155,26 +160,31 @@ export default async function TasksPage({
         .select(
           "id, title, description, owner_person_id, organization_id, status, due_date, due_time, meeting_id",
         )
+        .eq("workspace_id", workspaceId)
         .order("due_date", { ascending: true })
         .returns<Task[]>(),
       supabase
         .from("people")
         .select("id, name")
+        .eq("workspace_id", workspaceId)
         .order("name", { ascending: true })
         .returns<Person[]>(),
       supabase
         .from("organizations")
         .select("id, name")
+        .eq("workspace_id", workspaceId)
         .order("name", { ascending: true })
         .returns<Organization[]>(),
       supabase
         .from("meetings")
         .select("id, title")
+        .eq("workspace_id", workspaceId)
         .order("date", { ascending: false })
         .returns<Meeting[]>(),
       supabase
         .from("calendar_events")
         .select("task_id, google_event_id, synced_at")
+        .eq("workspace_id", workspaceId)
         .returns<CalendarEvent[]>(),
     ]);
 

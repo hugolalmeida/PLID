@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit/log-event";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 function readValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -35,9 +36,11 @@ export async function createGoalUpdateAction(formData: FormData) {
   if (!user) {
     throw new Error("Usuario nao autenticado.");
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
 
   const { error: insertError } = await supabase.from("goal_updates").insert({
     goal_id: goalId,
+    workspace_id: workspaceId,
     update_note: updateNote,
     current_value: currentValue,
     created_by: user.id,
@@ -52,7 +55,8 @@ export async function createGoalUpdateAction(formData: FormData) {
     .update({
       current_value: currentValue,
     })
-    .eq("id", goalId);
+    .eq("id", goalId)
+    .eq("workspace_id", workspaceId);
 
   if (goalError) {
     throw new Error(goalError.message);

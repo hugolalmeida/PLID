@@ -2,12 +2,18 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { OrganogramaClient } from "./organograma-client";
+import { type UserRole } from "@/lib/auth/roles";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 import type {
   OrganizationRow,
   PersonRoleRow,
   PersonRow,
   RoleRow,
 } from "./types";
+
+type ProfileRow = {
+  role: UserRole;
+};
 
 export default async function OrganogramaPage() {
   const supabase = await createSupabaseServerClient();
@@ -18,27 +24,41 @@ export default async function OrganogramaPage() {
   if (!user) {
     redirect("/login");
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle<ProfileRow>();
 
   const [organizationsResult, rolesResult, personRolesResult, peopleResult] =
     await Promise.all([
       supabase
         .from("organizations")
         .select("id, name, type, parent_id")
+        .eq("workspace_id", workspaceId)
         .order("name", { ascending: true })
         .returns<OrganizationRow[]>(),
       supabase
         .from("roles")
         .select("id, organization_id, name, responsibilities")
+        .eq("workspace_id", workspaceId)
         .order("name", { ascending: true })
         .returns<RoleRow[]>(),
       supabase
         .from("person_roles")
         .select("id, person_id, role_id, start_date, end_date")
+        .eq("workspace_id", workspaceId)
         .order("created_at", { ascending: false })
         .returns<PersonRoleRow[]>(),
       supabase
         .from("people")
         .select("id, name, email, phone, active")
+        .eq("workspace_id", workspaceId)
         .order("name", { ascending: true })
         .returns<PersonRow[]>(),
     ]);
@@ -81,9 +101,9 @@ export default async function OrganogramaPage() {
           roles={rolesResult.data || []}
           personRoles={personRolesResult.data || []}
           people={peopleResult.data || []}
+          canManage={profile?.role !== "visualizador"}
         />
       </section>
     </main>
   );
 }
-

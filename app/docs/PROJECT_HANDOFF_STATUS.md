@@ -92,6 +92,7 @@ Documentos em `docs/`:
 - `SUPABASE_GOALS_SETUP.md`
 - `SUPABASE_NOTIFICATIONS_SETUP.md`
 - `SUPABASE_AUDIT_SETUP.md`
+- `SUPABASE_WORKSPACES_SETUP.md`
 - `EMAIL_NOTIFICATIONS_REMINDER.md`
 - `SUPABASE_ORGANOGRAMA_SEED_EXEMPLO.md`
 
@@ -118,14 +119,15 @@ Falta:
 
 - Configurar variavel `CRON_SECRET` no ambiente de deploy (Vercel)
 - Tela dedicada para consulta/filtragem de auditoria (atualmente somente tabela/log no banco)
+- Isolamento completo por workspace em todas as policies RLS funcionais
 
 ## 7. Pontos Funcionais Pendentes (Produto)
 
 Alta prioridade:
 
 1. Configurar variavel `CRON_SECRET` no ambiente de deploy (Vercel)
-2. Dashboard com indicadores reais (atrasadas, concluidas, por ministerio)
-3. Revisar politicas e trilha de auditoria para mudancas criticas
+2. Finalizar multi-workspace (RLS por `workspace_id` em todos os modulos)
+3. Dashboard com indicadores reais (atrasadas, concluidas, por ministerio)
 
 Media prioridade:
 
@@ -177,9 +179,10 @@ Melhorias recomendadas para proxima rodada de UX:
 ## 11. Plano Sugerido para a Proxima Sessao
 
 1. Validar cron em producao (Vercel) com `CRON_SECRET`
-2. Criar indicadores no dashboard (tarefas, metas, reunioes)
-3. Rodada de refinamento visual no frontend (priorizando tarefas, metas e organograma)
-4. Planejar exportacao de relatorios (CSV/PDF)
+2. Rodar `SUPABASE_WORKSPACES_SETUP.md` e validar `/workspaces`
+3. Aplicar RLS por workspace em tabelas funcionais e revisar filtros
+4. Criar indicadores no dashboard (tarefas, metas, reunioes)
+5. Rodada de refinamento visual no frontend (priorizando tarefas, metas e organograma)
 
 ## 12. Checklist de Retomada Rapida
 
@@ -209,4 +212,4 @@ npm run dev
 
 ---
 
-Ultima atualizacao: 18/04/2026
+Ultima atualizacao: 19/04/2026

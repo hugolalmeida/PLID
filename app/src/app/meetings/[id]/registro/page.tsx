@@ -5,6 +5,7 @@ import { createMeetingTaskFromRecordAction, updateMeetingRecordAction } from "./
 import { readCreateFeedback, type PageSearchParams } from "@/lib/ui/action-feedback";
 import { CreateFeedbackBanner } from "@/components/ui/create-feedback-banner";
 import { type UserRole } from "@/lib/auth/roles";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 type Profile = {
   role: UserRole;
@@ -59,6 +60,10 @@ export default async function MeetingRecordPage({
   if (!user) {
     redirect("/login");
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
+  }
 
   const [meetingResult, profileResult, peopleResult, organizationsResult] =
     await Promise.all([
@@ -66,6 +71,7 @@ export default async function MeetingRecordPage({
         .from("meetings")
         .select("id, title, date, notes, minutes")
         .eq("id", id)
+        .eq("workspace_id", workspaceId)
         .maybeSingle<Meeting>(),
       supabase
         .from("profiles")
@@ -75,12 +81,14 @@ export default async function MeetingRecordPage({
       supabase
         .from("people")
         .select("id, name")
+        .eq("workspace_id", workspaceId)
         .eq("active", true)
         .order("name", { ascending: true })
         .returns<Person[]>(),
       supabase
         .from("organizations")
         .select("id, name")
+        .eq("workspace_id", workspaceId)
         .order("name", { ascending: true })
         .returns<Organization[]>(),
     ]);

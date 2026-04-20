@@ -10,6 +10,7 @@ import { type UserRole } from "@/lib/auth/roles";
 import { readCreateFeedback, type PageSearchParams } from "@/lib/ui/action-feedback";
 import { CreateFeedbackBanner } from "@/components/ui/create-feedback-banner";
 import { ExportActions } from "@/components/ui/export-actions";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 type Profile = {
   role: UserRole;
@@ -95,6 +96,10 @@ export default async function MeetingsPage({
   if (!user) {
     redirect("/login");
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -105,6 +110,7 @@ export default async function MeetingsPage({
   const meetingsWithStatus = await supabase
     .from("meetings")
     .select("id, title, date, notes, minutes, status")
+    .eq("workspace_id", workspaceId)
     .order("date", { ascending: false })
     .returns<Meeting[]>();
 
@@ -115,6 +121,7 @@ export default async function MeetingsPage({
     const fallback = await supabase
       .from("meetings")
       .select("id, title, date, notes, minutes")
+      .eq("workspace_id", workspaceId)
       .order("date", { ascending: false })
       .returns<Array<Omit<Meeting, "status">>>();
 

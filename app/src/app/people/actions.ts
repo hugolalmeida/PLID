@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { logAuditEvent } from "@/lib/audit/log-event";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 function readValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -16,6 +17,9 @@ function readBoolean(formData: FormData, key: string) {
 
 export async function createPersonAction(formData: FormData) {
   const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const name = readValue(formData, "name");
   const email = readValue(formData, "email");
   const phone = readValue(formData, "phone");
@@ -27,10 +31,18 @@ export async function createPersonAction(formData: FormData) {
   if (!name) {
     redirect("/people?create=error&message=Nome%20obrigatorio.");
   }
+  if (!user) {
+    redirect("/login");
+  }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
+  }
 
   const { data: createdPerson, error } = await supabase
     .from("people")
     .insert({
+      workspace_id: workspaceId,
       name,
       email: email || null,
       phone: phone || null,
@@ -60,6 +72,7 @@ export async function createPersonAction(formData: FormData) {
 
   if (roleId) {
     const { error: linkError } = await supabase.from("person_roles").insert({
+      workspace_id: workspaceId,
       person_id: createdPerson.id,
       role_id: roleId,
       start_date: startDate || null,
@@ -82,6 +95,9 @@ export async function createPersonAction(formData: FormData) {
 
 export async function updatePersonAction(formData: FormData) {
   const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const id = readValue(formData, "id");
   const name = readValue(formData, "name");
   const email = readValue(formData, "email");
@@ -92,6 +108,13 @@ export async function updatePersonAction(formData: FormData) {
   if (!id || !name) {
     throw new Error("ID e nome sao obrigatorios.");
   }
+  if (!user) {
+    throw new Error("Usuario nao autenticado.");
+  }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    throw new Error("Workspace ativo nao encontrado.");
+  }
 
   const { error } = await supabase
     .from("people")
@@ -101,7 +124,8 @@ export async function updatePersonAction(formData: FormData) {
       phone: phone || null,
       active,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     throw new Error(error.message);
@@ -128,14 +152,28 @@ export async function updatePersonAction(formData: FormData) {
 
 export async function deletePersonAction(formData: FormData) {
   const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const id = readValue(formData, "id");
   const returnPath = readValue(formData, "return_path");
 
   if (!id) {
     throw new Error("ID obrigatorio.");
   }
+  if (!user) {
+    throw new Error("Usuario nao autenticado.");
+  }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    throw new Error("Workspace ativo nao encontrado.");
+  }
 
-  const { error } = await supabase.from("people").delete().eq("id", id);
+  const { error } = await supabase
+    .from("people")
+    .delete()
+    .eq("id", id)
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     throw new Error(error.message);

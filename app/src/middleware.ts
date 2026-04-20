@@ -1,7 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
-const protectedRoutes = ["/dashboard"];
+const protectedRoutes = [
+  "/dashboard",
+  "/organograma",
+  "/tasks",
+  "/meetings",
+  "/goals",
+  "/notifications",
+  "/auditoria",
+  "/organizations",
+  "/roles",
+  "/people",
+  "/workspaces",
+];
 const authRoutes = ["/login"];
 
 function startsWithAny(pathname: string, routes: string[]) {
@@ -29,5 +41,18 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login"],
+  matcher: [
+    "/dashboard/:path*",
+    "/organograma/:path*",
+    "/tasks/:path*",
+    "/meetings/:path*",
+    "/goals/:path*",
+    "/notifications/:path*",
+    "/auditoria/:path*",
+    "/organizations/:path*",
+    "/roles/:path*",
+    "/people/:path*",
+    "/workspaces/:path*",
+    "/login",
+  ],
 };

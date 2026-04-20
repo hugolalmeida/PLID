@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCsv } from "@/lib/export/csv";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 type GoalRow = {
   id: string;
@@ -24,6 +25,10 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    return NextResponse.json({ error: "Workspace not found" }, { status: 400 });
+  }
 
   const [goalsResult, organizationsResult, peopleResult] = await Promise.all([
     supabase
@@ -31,13 +36,19 @@ export async function GET() {
       .select(
         "id, title, description, organization_id, owner_person_id, period_start, period_end, target_value, current_value, status",
       )
+      .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false })
       .returns<GoalRow[]>(),
     supabase
       .from("organizations")
       .select("id, name")
+      .eq("workspace_id", workspaceId)
       .returns<Array<{ id: string; name: string }>>(),
-    supabase.from("people").select("id, name").returns<Array<{ id: string; name: string }>>(),
+    supabase
+      .from("people")
+      .select("id, name")
+      .eq("workspace_id", workspaceId)
+      .returns<Array<{ id: string; name: string }>>(),
   ]);
 
   const firstError = goalsResult.error || organizationsResult.error || peopleResult.error;
@@ -89,4 +100,3 @@ export async function GET() {
     },
   });
 }
-

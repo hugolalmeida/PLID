@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 function readValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -20,9 +21,18 @@ export async function createPersonRoleAction(formData: FormData) {
     redirect("/person-roles?create=error&message=Pessoa%20e%20cargo%20sao%20obrigatorios.");
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("Usuario nao autenticado.");
+  }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+
   const { error } = await supabase.from("person_roles").insert({
     person_id: personId,
     role_id: roleId,
+    workspace_id: workspaceId,
     start_date: startDate || null,
     end_date: endDate || null,
   });
@@ -48,6 +58,14 @@ export async function updatePersonRoleAction(formData: FormData) {
     throw new Error("ID, pessoa e cargo sao obrigatorios.");
   }
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("Usuario nao autenticado.");
+  }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+
   const { error } = await supabase
     .from("person_roles")
     .update({
@@ -56,7 +74,8 @@ export async function updatePersonRoleAction(formData: FormData) {
       start_date: startDate || null,
       end_date: endDate || null,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     throw new Error(error.message);
@@ -78,7 +97,19 @@ export async function deletePersonRoleAction(formData: FormData) {
     throw new Error("ID obrigatorio.");
   }
 
-  const { error } = await supabase.from("person_roles").delete().eq("id", id);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("Usuario nao autenticado.");
+  }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+
+  const { error } = await supabase
+    .from("person_roles")
+    .delete()
+    .eq("id", id)
+    .eq("workspace_id", workspaceId);
 
   if (error) {
     throw new Error(error.message);

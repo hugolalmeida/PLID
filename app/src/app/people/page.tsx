@@ -9,6 +9,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { type UserRole } from "@/lib/auth/roles";
 import { readCreateFeedback, type PageSearchParams } from "@/lib/ui/action-feedback";
 import { CreateFeedbackBanner } from "@/components/ui/create-feedback-banner";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 type Person = {
   id: string;
@@ -62,6 +63,10 @@ export default async function PeoplePage({
   if (!user) {
     redirect("/login");
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
+  }
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -73,16 +78,19 @@ export default async function PeoplePage({
     supabase
       .from("people")
       .select("id, name, email, phone, active")
+      .eq("workspace_id", workspaceId)
       .order("name", { ascending: true })
       .returns<Person[]>(),
     supabase
       .from("roles")
       .select("id, name")
+      .eq("workspace_id", workspaceId)
       .order("name", { ascending: true })
       .returns<Role[]>(),
     supabase
       .from("person_roles")
       .select("person_id, role_id, start_date, end_date")
+      .eq("workspace_id", workspaceId)
       .returns<PersonRole[]>(),
   ]);
 

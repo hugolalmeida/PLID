@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { buildCsv } from "@/lib/export/csv";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
 type MeetingRow = {
   id: string;
@@ -20,10 +21,15 @@ export async function GET() {
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    return NextResponse.json({ error: "Workspace not found" }, { status: 400 });
+  }
 
   let { data, error } = await supabase
     .from("meetings")
     .select("id, title, date, status, notes, minutes")
+    .eq("workspace_id", workspaceId)
     .order("date", { ascending: false })
     .returns<MeetingRow[]>();
 
@@ -31,6 +37,7 @@ export async function GET() {
     const fallback = await supabase
       .from("meetings")
       .select("id, title, date, notes, minutes")
+      .eq("workspace_id", workspaceId)
       .order("date", { ascending: false })
       .returns<Array<Omit<MeetingRow, "status">>>();
 
@@ -68,4 +75,3 @@ export async function GET() {
     },
   });
 }
-

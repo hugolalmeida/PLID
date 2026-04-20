@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 import {
   runNotificationsSweep,
   sendQueuedNotifications,
@@ -9,22 +10,43 @@ import {
 
 export async function runNotificationsSweepAction() {
   const supabase = await createSupabaseServerClient();
-  await runNotificationsSweep(supabase);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("Usuario nao autenticado.");
+  }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  await runNotificationsSweep(supabase, workspaceId);
   revalidatePath("/notifications");
   revalidatePath("/dashboard");
 }
 
 export async function sendQueuedNotificationsAction() {
   const supabase = await createSupabaseServerClient();
-  await sendQueuedNotifications(supabase);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("Usuario nao autenticado.");
+  }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  await sendQueuedNotifications(supabase, workspaceId);
   revalidatePath("/notifications");
   revalidatePath("/dashboard");
 }
 
 export async function runSweepAndSendNotificationsAction() {
   const supabase = await createSupabaseServerClient();
-  await runNotificationsSweep(supabase);
-  await sendQueuedNotifications(supabase);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("Usuario nao autenticado.");
+  }
+  const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  await runNotificationsSweep(supabase, workspaceId);
+  await sendQueuedNotifications(supabase, workspaceId);
   revalidatePath("/notifications");
   revalidatePath("/dashboard");
 }
