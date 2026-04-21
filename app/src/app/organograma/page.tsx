@@ -2,18 +2,14 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { OrganogramaClient } from "./organograma-client";
-import { type UserRole } from "@/lib/auth/roles";
 import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
+import { canWriteWorkspaceRole, getWorkspaceRoleForUser } from "@/lib/workspaces/permissions";
 import type {
   OrganizationRow,
   PersonRoleRow,
   PersonRow,
   RoleRow,
 } from "./types";
-
-type ProfileRow = {
-  role: UserRole;
-};
 
 export default async function OrganogramaPage() {
   const supabase = await createSupabaseServerClient();
@@ -28,12 +24,6 @@ export default async function OrganogramaPage() {
   if (!workspaceId) {
     redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
   }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle<ProfileRow>();
 
   const [organizationsResult, rolesResult, personRolesResult, peopleResult] =
     await Promise.all([
@@ -73,8 +63,10 @@ export default async function OrganogramaPage() {
     throw new Error(firstError.message);
   }
 
+  const workspaceRole = await getWorkspaceRoleForUser(supabase, user.id, workspaceId);
+
   return (
-    <main className="mx-auto w-full max-w-6xl p-6 md:p-10">
+    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 md:p-10">
       <section className="surface-card p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -101,7 +93,7 @@ export default async function OrganogramaPage() {
           roles={rolesResult.data || []}
           personRoles={personRolesResult.data || []}
           people={peopleResult.data || []}
-          canManage={profile?.role !== "visualizador"}
+          canManage={canWriteWorkspaceRole(workspaceRole)}
         />
       </section>
     </main>

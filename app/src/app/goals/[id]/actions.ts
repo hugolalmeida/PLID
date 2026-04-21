@@ -37,6 +37,9 @@ export async function createGoalUpdateAction(formData: FormData) {
     throw new Error("Usuario nao autenticado.");
   }
   const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
+  if (!workspaceId) {
+    throw new Error("Workspace ativo nao encontrado.");
+  }
 
   const { error: insertError } = await supabase.from("goal_updates").insert({
     goal_id: goalId,

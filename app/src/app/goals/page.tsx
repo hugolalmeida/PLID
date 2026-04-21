@@ -6,7 +6,6 @@ import {
   updateGoalAction,
 } from "./actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { type UserRole } from "@/lib/auth/roles";
 import { readCreateFeedback, type PageSearchParams } from "@/lib/ui/action-feedback";
 import { CreateFeedbackBanner } from "@/components/ui/create-feedback-banner";
 import { ExportActions } from "@/components/ui/export-actions";
@@ -16,10 +15,7 @@ import {
   goalProgressPercent,
 } from "@/lib/goals/effective-status";
 import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
-
-type Profile = {
-  role: UserRole;
-};
+import { canWriteWorkspaceRole, getWorkspaceRoleForUser } from "@/lib/workspaces/permissions";
 
 type Organization = {
   id: string;
@@ -29,6 +25,19 @@ type Organization = {
 type Person = {
   id: string;
   name: string;
+};
+
+type Role = {
+  id: string;
+  name: string;
+  organization_id: string;
+};
+
+type PersonRole = {
+  person_id: string;
+  role_id: string;
+  start_date: string | null;
+  end_date: string | null;
 };
 
 type Goal = {
@@ -148,27 +157,20 @@ export default async function GoalsPage({
     redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle<Profile>();
-
-  const goalsQuery = supabase
+  let goalsQuery = supabase
     .from("goals")
     .select(
       "id, title, description, organization_id, owner_person_id, period_start, period_end, target_value, current_value, status",
     )
     .eq("workspace_id", workspaceId)
-    .order("created_at", { ascending: false })
-    .returns<Goal[]>();
+    .order("created_at", { ascending: false });
 
   if (selectedOrganizationId !== "all") {
-    goalsQuery.eq("organization_id", selectedOrganizationId);
+    goalsQuery = goalsQuery.eq("organization_id", selectedOrganizationId);
   }
 
-  const [goalsResult, organizationsResult, peopleResult] = await Promise.all([
-    goalsQuery,
+  const [goalsResult, organizationsResult, peopleResult, rolesResult, personRolesResult] = await Promise.all([
+    goalsQuery.returns<Goal[]>(),
     supabase
       .from("organizations")
       .select("id, name")
@@ -181,10 +183,24 @@ export default async function GoalsPage({
       .eq("workspace_id", workspaceId)
       .order("name", { ascending: true })
       .returns<Person[]>(),
+    supabase
+      .from("roles")
+      .select("id, name, organization_id")
+      .eq("workspace_id", workspaceId)
+      .returns<Role[]>(),
+    supabase
+      .from("person_roles")
+      .select("person_id, role_id, start_date, end_date")
+      .eq("workspace_id", workspaceId)
+      .returns<PersonRole[]>(),
   ]);
 
   const firstError =
-    goalsResult.error || organizationsResult.error || peopleResult.error;
+    goalsResult.error ||
+    organizationsResult.error ||
+    peopleResult.error ||
+    rolesResult.error ||
+    personRolesResult.error;
 
   if (firstError) {
     throw new Error(firstError.message);
@@ -193,9 +209,39 @@ export default async function GoalsPage({
   const goals = goalsResult.data || [];
   const organizations = organizationsResult.data || [];
   const people = peopleResult.data || [];
-  const canManage = profile?.role !== "visualizador";
+  const roles = rolesResult.data || [];
+  const personRoles = personRolesResult.data || [];
+  const organizationNameById = new Map(
+    organizations.map((organization) => [organization.id, organization.name]),
+  );
+  const roleById = new Map(roles.map((role) => [role.id, role]));
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const personLabelById = new Map<string, string>();
+
+  for (const person of people) {
+    const currentLinks = personRoles
+      .filter((link) => {
+        if (link.person_id !== person.id) return false;
+        const startsOk = !link.start_date || link.start_date <= todayIso;
+        const endsOk = !link.end_date || link.end_date >= todayIso;
+        return startsOk && endsOk;
+      })
+      .sort((a, b) => (b.start_date || "").localeCompare(a.start_date || ""));
+
+    const currentRole = currentLinks[0] ? roleById.get(currentLinks[0].role_id) : null;
+    if (!currentRole) {
+      personLabelById.set(person.id, person.name);
+      continue;
+    }
+
+    const orgName = organizationNameById.get(currentRole.organization_id) || "Organizacao";
+    personLabelById.set(person.id, `${person.name} (${currentRole.name} - ${orgName})`);
+  }
+
+  const workspaceRole = await getWorkspaceRoleForUser(supabase, user.id, workspaceId);
+  const canManage = canWriteWorkspaceRole(workspaceRole);
   const today = new Date();
-  const todayIso = new Date(
+  const todayDateIso = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
   )
     .toISOString()
@@ -208,15 +254,15 @@ export default async function GoalsPage({
     }
 
     if (selectedPeriod === "ongoing") {
-      return goal.period_start <= todayIso && goal.period_end >= todayIso;
+      return goal.period_start <= todayDateIso && goal.period_end >= todayDateIso;
     }
 
     if (selectedPeriod === "upcoming") {
-      return goal.period_start > todayIso;
+      return goal.period_start > todayDateIso;
     }
 
     if (selectedPeriod === "ended") {
-      return goal.period_end < todayIso;
+      return goal.period_end < todayDateIso;
     }
 
     return true;
@@ -235,7 +281,7 @@ export default async function GoalsPage({
   });
 
   return (
-    <main className="mx-auto w-full max-w-6xl p-6 md:p-10">
+    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 md:p-10">
       <section className="surface-card p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -374,7 +420,7 @@ export default async function GoalsPage({
                     </option>
                     {people.map((person) => (
                       <option key={person.id} value={person.id}>
-                        {person.name}
+                        {personLabelById.get(person.id) || person.name}
                       </option>
                     ))}
                   </select>
@@ -433,7 +479,7 @@ export default async function GoalsPage({
         ) : null}
 
         <section className="mt-6 overflow-x-auto rounded-xl border border-[var(--line)] bg-white">
-          <table className="min-w-full text-sm">
+          <table className="mobile-table min-w-full text-sm">
             <thead className="border-b border-[var(--line)] bg-[#f8f4ee]">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Meta</th>
@@ -466,17 +512,17 @@ export default async function GoalsPage({
 
                   return (
                     <tr key={goal.id} className="border-b border-[var(--line)] last:border-0">
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Meta">
                         <div>
                           <p className="font-medium">{goal.title}</p>
                           <p className="muted-text line-clamp-2 text-xs">{goal.description || "-"}</p>
                         </div>
                       </td>
-                      <td className="px-4 py-3">{ownerName}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Responsavel">{ownerName}</td>
+                      <td className="px-4 py-3" data-label="Periodo">
                         {goal.period_start} ate {goal.period_end}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Progresso">
                         <div className="w-36 rounded-full bg-[#ece7dd]">
                           <div
                             className="h-2 rounded-full bg-[var(--accent)]"
@@ -487,14 +533,14 @@ export default async function GoalsPage({
                           {goal.current_value} / {goal.target_value} ({progress}%)
                         </p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Status">
                         <span
                           className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(computedStatus)}`}
                         >
                           {statusLabel(computedStatus)}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Acoes">
                         <div className="flex flex-nowrap items-center gap-2 whitespace-nowrap">
                           {canManage ? (
                             <Link
@@ -613,7 +659,7 @@ export default async function GoalsPage({
                   >
                     {people.map((person) => (
                       <option key={person.id} value={person.id}>
-                        {person.name}
+                        {personLabelById.get(person.id) || person.name}
                       </option>
                     ))}
                   </select>

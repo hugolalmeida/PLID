@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -37,6 +38,9 @@ type ProfileContextApiResponse = {
 
 const primaryItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard" },
+];
+
+const operationItems: NavItem[] = [
   { href: "/organograma", label: "Organograma" },
   { href: "/tasks", label: "Atividades" },
   { href: "/meetings", label: "Reunioes" },
@@ -175,6 +179,9 @@ function WorkspaceQuickSwitch({ compact = false }: { compact?: boolean }) {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [operationMenuOpen, setOperationMenuOpen] = useState(() =>
+    operationItems.some((item) => isActivePath(pathname || "", item.href)),
+  );
   const [setupMenuOpen, setSetupMenuOpen] = useState(() =>
     setupItems.some((item) => isActivePath(pathname || "", item.href)),
   );
@@ -219,9 +226,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const navigation = (
     <nav className="space-y-5">
       <section>
-        <p className="px-3 text-xs font-semibold tracking-[0.14em] text-[var(--muted)] uppercase">
-          Principal
-        </p>
+        <p className="px-3 text-xs font-semibold tracking-[0.14em] text-[var(--muted)] uppercase">Principal</p>
         <div className="mt-2 space-y-1">
           {primaryItems.map((item) => (
             <NavLink
@@ -232,6 +237,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             />
           ))}
         </div>
+      </section>
+
+      <section>
+        <button
+          type="button"
+          onClick={() => setOperationMenuOpen((state) => !state)}
+          className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs font-semibold tracking-[0.14em] text-[var(--muted)] uppercase transition hover:bg-[#efe9de]"
+          aria-expanded={operationMenuOpen}
+        >
+          <span>Operacao</span>
+          <span className="text-sm leading-none">{operationMenuOpen ? "-" : "+"}</span>
+        </button>
+        {operationMenuOpen ? (
+          <div className="mt-2 space-y-1">
+            {operationItems.map((item) => (
+              <NavLink
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                onClick={() => setMobileMenuOpen(false)}
+              />
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section>
@@ -265,10 +294,22 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden border-r border-[var(--line)] bg-[var(--surface)] md:block">
         <div className="sticky top-0 h-screen overflow-y-auto p-4">
           <Link href="/dashboard" className="block rounded-xl border border-[var(--line)] p-3">
-            <p className="text-xs font-semibold tracking-[0.14em] text-[var(--accent)] uppercase">
-              PLID
-            </p>
-            <p className="mt-1 text-sm font-semibold">Painel de Lideranca</p>
+            <div className="flex items-center gap-3">
+              <Image
+                src="/plid_mark.png"
+                alt="PLID"
+                width={48}
+                height={48}
+                className="h-12 w-12 object-contain"
+                priority
+              />
+              <div>
+                <p className="text-xs font-semibold tracking-[0.14em] text-[var(--accent)] uppercase">
+                  PLID
+                </p>
+                <p className="mt-1 text-sm font-semibold">Painel de Lideranca</p>
+              </div>
+            </div>
           </Link>
           <div className="mt-3">
             <WorkspaceQuickSwitch />
@@ -313,24 +354,31 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen">
         <header className="sticky top-0 z-30 border-b border-[var(--line)] bg-[var(--surface)]/95 p-3 backdrop-blur md:hidden">
           <div className="flex items-center justify-between gap-2">
-            <Link href="/dashboard" className="text-sm font-semibold">
-              PLID
+            <Link href="/dashboard" className="inline-flex items-center rounded-lg bg-white px-2 py-1">
+              <Image
+                src="/plid_mark.png"
+                alt="PLID"
+                width={120}
+                height={40}
+                className="h-7 w-auto object-contain"
+                priority
+              />
             </Link>
-            <div className="flex items-center gap-2">
-              <WorkspaceQuickSwitch compact />
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen((state) => !state)}
-                className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm font-medium"
-              >
-                Menu
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((state) => !state)}
+              className="rounded-lg border border-[var(--line)] bg-white px-3 py-1.5 text-sm font-medium"
+            >
+              Menu
+            </button>
           </div>
         </header>
 
         {mobileMenuOpen ? (
           <div className="border-b border-[var(--line)] bg-[var(--surface)] p-3 md:hidden">
+            <div className="mb-3">
+              <WorkspaceQuickSwitch compact />
+            </div>
             {navigation}
             <div className="mt-4 border-t border-[var(--line)] pt-3">
               <div className="mb-2 flex items-center justify-between gap-2 rounded-lg border border-[var(--line)] bg-white px-3 py-2">

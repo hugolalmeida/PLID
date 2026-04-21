@@ -10,6 +10,8 @@ import { type UserRole } from "@/lib/auth/roles";
 import { getComputedGoalStatus, goalProgressPercent } from "@/lib/goals/effective-status";
 import { type PageSearchParams } from "@/lib/ui/action-feedback";
 import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
+import { getWorkspaceCalendarIntegration } from "@/lib/workspaces/integrations";
+import { canWriteWorkspaceRole, getWorkspaceRoleForUser } from "@/lib/workspaces/permissions";
 
 type ProfileRow = {
   full_name: string | null;
@@ -153,6 +155,7 @@ export default async function DashboardPage({
   if (!workspaceId) {
     redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
   }
+  const calendarIntegration = await getWorkspaceCalendarIntegration(supabase, workspaceId);
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -184,20 +187,12 @@ export default async function DashboardPage({
     .neq("status", "done")
     .gte("due_date", todayIso)
     .lte("due_date", rangeEndIso);
-  const goalsMetricsQuery = supabase
+  let goalsMetricsQuery = supabase
     .from("goals")
     .select("id, status, current_value, target_value, period_start, period_end")
     .eq("workspace_id", workspaceId)
-    .in("status", ["active", "at_risk"])
-    .returns<
-      Array<
-        Pick<
-          GoalPreviewRow,
-          "id" | "status" | "current_value" | "target_value" | "period_start" | "period_end"
-        >
-      >
-    >();
-  const tasksPreviewQuery = supabase
+    .in("status", ["active", "at_risk"]);
+  let tasksPreviewQuery = supabase
     .from("tasks")
     .select("id, title, due_date, status, organization_id")
     .eq("workspace_id", workspaceId)
@@ -205,9 +200,8 @@ export default async function DashboardPage({
     .gte("due_date", todayIso)
     .lte("due_date", rangeEndIso)
     .order("due_date", { ascending: true })
-    .limit(5)
-    .returns<TaskPreviewRow[]>();
-  const goalsPreviewQuery = supabase
+    .limit(5);
+  let goalsPreviewQuery = supabase
     .from("goals")
     .select(
       "id, title, status, current_value, target_value, period_start, period_end, organization_id",
@@ -215,16 +209,15 @@ export default async function DashboardPage({
     .eq("workspace_id", workspaceId)
     .in("status", ["active", "at_risk"])
     .order("period_end", { ascending: true })
-    .limit(5)
-    .returns<GoalPreviewRow[]>();
+    .limit(5);
 
   if (selectedOrganizationId) {
     tasksOpenQuery.eq("organization_id", selectedOrganizationId);
     tasksOverdueQuery.eq("organization_id", selectedOrganizationId);
     tasksDueWindowQuery.eq("organization_id", selectedOrganizationId);
-    goalsMetricsQuery.eq("organization_id", selectedOrganizationId);
-    tasksPreviewQuery.eq("organization_id", selectedOrganizationId);
-    goalsPreviewQuery.eq("organization_id", selectedOrganizationId);
+    goalsMetricsQuery = goalsMetricsQuery.eq("organization_id", selectedOrganizationId);
+    tasksPreviewQuery = tasksPreviewQuery.eq("organization_id", selectedOrganizationId);
+    goalsPreviewQuery = goalsPreviewQuery.eq("organization_id", selectedOrganizationId);
   }
 
   const [
@@ -239,9 +232,16 @@ export default async function DashboardPage({
     tasksOpenQuery,
     tasksOverdueQuery,
     tasksDueWindowQuery,
-    goalsMetricsQuery,
-    tasksPreviewQuery,
-    goalsPreviewQuery,
+    goalsMetricsQuery.returns<
+      Array<
+        Pick<
+          GoalPreviewRow,
+          "id" | "status" | "current_value" | "target_value" | "period_start" | "period_end"
+        >
+      >
+    >(),
+    tasksPreviewQuery.returns<TaskPreviewRow[]>(),
+    goalsPreviewQuery.returns<GoalPreviewRow[]>(),
     supabase
       .from("organizations")
       .select("id, name")
@@ -298,7 +298,8 @@ export default async function DashboardPage({
     throw new Error(firstError.message);
   }
 
-  const canManage = profile?.role !== "visualizador";
+  const workspaceRole = await getWorkspaceRoleForUser(supabase, user.id, workspaceId);
+  const canManage = canWriteWorkspaceRole(workspaceRole);
   const tasksOpenCount = tasksOpenResult.count || 0;
   const tasksOverdueCount = tasksOverdueResult.count || 0;
   const tasksDueWeekCount = tasksDueWeekResult.count || 0;
@@ -325,7 +326,7 @@ export default async function DashboardPage({
   const todayLabel = today.toLocaleDateString("pt-BR");
 
   return (
-    <main className="mx-auto w-full max-w-6xl p-6 md:p-10">
+    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 md:p-10">
       <section className="surface-card p-6 md:p-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -396,6 +397,30 @@ export default async function DashboardPage({
             Limpar
           </Link>
         </form>
+
+        {!calendarIntegration.enabled ? (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <p className="font-semibold">Calendario ainda nao configurado neste workspace.</p>
+            <p className="mt-1">
+              {calendarIntegration.setupMessage || "Defina a integracao para sincronizar atividades e reunioes."}{" "}
+              <Link href="/workspaces#calendar-integracao" className="underline underline-offset-2">
+                Configurar agora
+              </Link>
+              .
+            </p>
+          </div>
+        ) : !calendarIntegration.calendarId ? (
+          <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-800">
+            <p className="font-semibold">Calendario nao definido neste workspace.</p>
+            <p className="mt-1">
+              A sincronizacao com Google Calendar esta desativada para este workspace.{" "}
+              <Link href="/workspaces#calendar-integracao" className="underline underline-offset-2">
+                Configurar calendario
+              </Link>
+              .
+            </p>
+          </div>
+        ) : null}
 
         <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <article className="exec-kpi">
@@ -649,18 +674,6 @@ export default async function DashboardPage({
                     <p className="muted-text mt-1 text-xs">
                       Data: {new Date(`${meeting.date}T12:00:00`).toLocaleDateString("pt-BR")}
                     </p>
-                    <div className="mt-2">
-                      <Link
-                        href={`/meetings/${meeting.id}/registro`}
-                        className="inline-flex items-center gap-1 rounded-md border border-[var(--line)] bg-white p-1.5 text-[var(--accent)]"
-                        title="Abrir registro da reuniao"
-                        aria-label={`Abrir registro da reuniao ${meeting.title}`}
-                      >
-                        <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="currentColor">
-                          <path d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414a2 2 0 00-.586-1.414l-3.414-3.414A2 2 0 0010.586 2H6zm4 1.5V7a1 1 0 001 1h3.5V16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1h4zm-2 7a1 1 0 100 2h4a1 1 0 100-2H8zm0 3a1 1 0 100 2h4a1 1 0 100-2H8z" />
-                        </svg>
-                      </Link>
-                    </div>
                     {canManage ? (
                       <form action={updateMeetingStatusQuickAction} className="mt-2 flex items-center gap-2">
                         <input type="hidden" name="id" value={meeting.id} />
@@ -681,8 +694,31 @@ export default async function DashboardPage({
                         >
                           Atualizar
                         </button>
+                        <Link
+                          href={`/meetings/${meeting.id}/registro`}
+                          className="inline-flex items-center gap-1 rounded-md border border-[var(--line)] bg-white p-1.5 text-[var(--accent)]"
+                          title="Abrir registro da reuniao"
+                          aria-label={`Abrir registro da reuniao ${meeting.title}`}
+                        >
+                          <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="currentColor">
+                            <path d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414a2 2 0 00-.586-1.414l-3.414-3.414A2 2 0 0010.586 2H6zm4 1.5V7a1 1 0 001 1h3.5V16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1h4zm-2 7a1 1 0 100 2h4a1 1 0 100-2H8zm0 3a1 1 0 100 2h4a1 1 0 100-2H8z" />
+                          </svg>
+                        </Link>
                       </form>
-                    ) : null}
+                    ) : (
+                      <div className="mt-2">
+                        <Link
+                          href={`/meetings/${meeting.id}/registro`}
+                          className="inline-flex items-center gap-1 rounded-md border border-[var(--line)] bg-white p-1.5 text-[var(--accent)]"
+                          title="Abrir registro da reuniao"
+                          aria-label={`Abrir registro da reuniao ${meeting.title}`}
+                        >
+                          <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="currentColor">
+                            <path d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414a2 2 0 00-.586-1.414l-3.414-3.414A2 2 0 0010.586 2H6zm4 1.5V7a1 1 0 001 1h3.5V16a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1h4zm-2 7a1 1 0 100 2h4a1 1 0 100-2H8zm0 3a1 1 0 100 2h4a1 1 0 100-2H8z" />
+                          </svg>
+                        </Link>
+                      </div>
+                    )}
                     {showUpdatedBadge("meeting", meeting.id) ? (
                       <p className="mt-1 text-xs font-medium text-emerald-700">Status salvo.</p>
                     ) : null}

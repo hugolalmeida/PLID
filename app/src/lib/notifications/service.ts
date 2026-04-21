@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmailWithGmail } from "@/lib/google/gmail";
+import { buildPlidEmailTemplate } from "@/lib/email/templates";
 
 type TaskForNotification = {
   id: string;
@@ -53,6 +54,42 @@ function buildBody(log: NotificationLogQueued) {
     "",
     "PLID",
   ].join("\n");
+}
+
+function buildEmailByType(log: NotificationLogQueued) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
+  const taskTitle = String(log.payload?.task_title || `Task ${log.task_id.slice(0, 8)}`);
+  const reason = String(log.payload?.reason || "Notificacao automatica");
+
+  if (log.type === "due_reminder_2d") {
+    return buildPlidEmailTemplate({
+      preheader: "Lembrete: atividade com prazo em 2 dias.",
+      title: "Prazo se aproximando",
+      intro: "Uma atividade do seu workspace esta perto do vencimento. Recomendamos revisar e atualizar o status.",
+      rows: [
+        { label: "Atividade", value: taskTitle },
+        { label: "Motivo", value: reason },
+      ],
+      ctaLabel: "Abrir atividades",
+      ctaUrl: `${appUrl}/tasks`,
+    });
+  }
+
+  return buildPlidEmailTemplate({
+    preheader: "Atividade vencida ha 2 dias sem conclusao.",
+    title: "Atividade em atraso",
+    intro: "Uma atividade continua sem conclusao dois dias apos o prazo. Avalie prioridade e proximo passo.",
+    rows: [
+      { label: "Atividade", value: taskTitle },
+      { label: "Motivo", value: reason },
+      {
+        label: "Responsavel notificado",
+        value: String(log.payload?.recipient_profile || "criador da atividade"),
+      },
+    ],
+    ctaLabel: "Revisar no painel",
+    ctaUrl: `${appUrl}/tasks?deadline=overdue`,
+  });
 }
 
 function getAttempts(log: NotificationLogQueued) {
@@ -276,10 +313,12 @@ export async function sendQueuedNotifications(
     }
 
     try {
+      const email = buildEmailByType(log);
       const sentEmail = await sendEmailWithGmail({
         to: log.recipient_email,
         subject: subjectByType(log.type),
-        body: buildBody(log),
+        text: email.text || buildBody(log),
+        html: email.html,
       });
 
       let sentUpdate = supabase

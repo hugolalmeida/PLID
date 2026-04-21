@@ -15,6 +15,18 @@ function readBoolean(formData: FormData, key: string) {
   return readValue(formData, key) === "true";
 }
 
+function buildFeedbackPath(
+  basePath: string | undefined,
+  status: "success" | "error",
+  message: string,
+) {
+  const safeBase = basePath && basePath.startsWith("/") ? basePath : "/people";
+  const url = new URL(safeBase, "http://localhost");
+  url.searchParams.set("create", status);
+  url.searchParams.set("message", message);
+  return `${url.pathname}${url.search}`;
+}
+
 export async function createPersonAction(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const {
@@ -236,6 +248,49 @@ export async function deletePersonAction(formData: FormData) {
     throw new Error("Workspace ativo nao encontrado.");
   }
 
+  const [tasksOwnedResult, goalsOwnedResult] = await Promise.all([
+    supabase
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
+      .eq("owner_person_id", id),
+    supabase
+      .from("goals")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
+      .eq("owner_person_id", id),
+  ]);
+
+  const checkError = tasksOwnedResult.error || goalsOwnedResult.error;
+  if (checkError) {
+    redirect(
+      buildFeedbackPath(
+        returnPath,
+        "error",
+        `Falha ao validar vinculos da pessoa: ${checkError.message}`,
+      ),
+    );
+  }
+
+  const tasksOwned = tasksOwnedResult.count || 0;
+  const goalsOwned = goalsOwnedResult.count || 0;
+  if (tasksOwned > 0 || goalsOwned > 0) {
+    const blockedBy = [
+      tasksOwned > 0 ? `${tasksOwned} atividade(s)` : null,
+      goalsOwned > 0 ? `${goalsOwned} meta(s)` : null,
+    ]
+      .filter(Boolean)
+      .join(" e ");
+
+    redirect(
+      buildFeedbackPath(
+        returnPath,
+        "error",
+        `Nao foi possivel remover a pessoa: ela ainda esta vinculada a ${blockedBy}. Reatribua os responsaveis antes de excluir.`,
+      ),
+    );
+  }
+
   const { error } = await supabase
     .from("people")
     .delete()
@@ -243,7 +298,7 @@ export async function deletePersonAction(formData: FormData) {
     .eq("workspace_id", workspaceId);
 
   if (error) {
-    throw new Error(error.message);
+    redirect(buildFeedbackPath(returnPath, "error", `Falha ao remover pessoa: ${error.message}`));
   }
 
   await logAuditEvent(supabase, {
@@ -255,6 +310,8 @@ export async function deletePersonAction(formData: FormData) {
   revalidatePath("/people");
 
   if (returnPath) {
-    redirect(returnPath);
+    redirect(buildFeedbackPath(returnPath, "success", "Pessoa removida com sucesso."));
   }
+
+  redirect("/people?create=success&message=Pessoa%20removida%20com%20sucesso.");
 }

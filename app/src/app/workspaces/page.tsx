@@ -52,6 +52,7 @@ export default async function WorkspacesPage({
   }
 
   const context = await getUserWorkspaceContext(supabase, user.id);
+  const currentWorkspaceId = context.currentWorkspaceId ?? "";
   const activeWorkspace = context.options.find(
     (workspace) => workspace.id === context.currentWorkspaceId,
   );
@@ -97,7 +98,7 @@ export default async function WorkspacesPage({
   const integration = integrationResult.data;
 
   return (
-    <main className="mx-auto w-full max-w-6xl p-6 md:p-10">
+    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 md:p-10">
       <section className="surface-card p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -158,7 +159,7 @@ export default async function WorkspacesPage({
             </details>
 
             <section className="mt-6 overflow-x-auto rounded-xl border border-[var(--line)] bg-white">
-              <table className="min-w-full text-sm">
+              <table className="mobile-table min-w-full text-sm">
                 <thead className="border-b border-[var(--line)] bg-[#f8f4ee]">
                   <tr>
                     <th className="px-4 py-3 text-left font-semibold">Workspace</th>
@@ -177,10 +178,10 @@ export default async function WorkspacesPage({
                           key={workspace.id}
                           className="border-b border-[var(--line)] last:border-0"
                         >
-                          <td className="px-4 py-3 font-medium">{workspace.name}</td>
-                          <td className="px-4 py-3">{workspace.slug}</td>
-                          <td className="px-4 py-3">{workspaceRoleLabel(workspace.role)}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 font-medium" data-label="Workspace">{workspace.name}</td>
+                          <td className="px-4 py-3" data-label="Slug">{workspace.slug}</td>
+                          <td className="px-4 py-3" data-label="Papel">{workspaceRoleLabel(workspace.role)}</td>
+                          <td className="px-4 py-3" data-label="Status">
                             {isCurrent ? (
                               <span className="rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-800">
                                 Ativo
@@ -191,7 +192,7 @@ export default async function WorkspacesPage({
                               </span>
                             )}
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3" data-label="Acoes">
                             <div className="flex flex-wrap items-center gap-2">
                               {!isCurrent ? (
                                 <form action={switchWorkspaceAction}>
@@ -309,7 +310,7 @@ export default async function WorkspacesPage({
                     <input
                       type="hidden"
                       name="workspace_id"
-                      value={context.currentWorkspaceId}
+                      value={currentWorkspaceId}
                     />
                     <label className="min-w-[240px] flex-1 text-xs font-medium text-[var(--muted)]">
                       E-mail da conta
@@ -350,7 +351,7 @@ export default async function WorkspacesPage({
                 )}
 
                 <div className="mt-4 overflow-x-auto rounded-xl border border-[var(--line)]">
-                  <table className="min-w-full text-sm">
+                  <table className="mobile-table min-w-full text-sm">
                     <thead className="border-b border-[var(--line)] bg-[#f8f4ee]">
                       <tr>
                         <th className="px-4 py-3 text-left font-semibold">Nome</th>
@@ -365,14 +366,14 @@ export default async function WorkspacesPage({
                           const isSelf = member.user_id === user.id;
                           return (
                             <tr key={member.user_id} className="border-b border-[var(--line)] last:border-0">
-                              <td className="px-4 py-3">{member.full_name || "Sem nome"}</td>
-                              <td className="px-4 py-3">{member.email || "-"}</td>
-                              <td className="px-4 py-3">{workspaceRoleLabel(member.role)}</td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-3" data-label="Nome">{member.full_name || "Sem nome"}</td>
+                              <td className="px-4 py-3" data-label="E-mail">{member.email || "-"}</td>
+                              <td className="px-4 py-3" data-label="Papel">{workspaceRoleLabel(member.role)}</td>
+                              <td className="px-4 py-3" data-label="Acoes">
                                 {canManageMembers && member.role !== "owner" ? (
                                   <div className="flex flex-wrap items-center gap-2">
                                     <form action={updateWorkspaceMemberRoleAction} className="flex items-center gap-2">
-                                      <input type="hidden" name="workspace_id" value={context.currentWorkspaceId} />
+                                      <input type="hidden" name="workspace_id" value={currentWorkspaceId} />
                                       <input type="hidden" name="member_user_id" value={member.user_id} />
                                       <select
                                         name="role"
@@ -412,7 +413,7 @@ export default async function WorkspacesPage({
                                             Este membro se tornara owner e voce sera admin.
                                           </p>
                                           <form action={transferWorkspaceOwnershipAction} className="mt-2">
-                                            <input type="hidden" name="workspace_id" value={context.currentWorkspaceId} />
+                                            <input type="hidden" name="workspace_id" value={currentWorkspaceId} />
                                             <input type="hidden" name="target_user_id" value={member.user_id} />
                                             <button
                                               type="submit"
@@ -426,7 +427,7 @@ export default async function WorkspacesPage({
                                     ) : null}
                                     {!isSelf ? (
                                       <form action={removeWorkspaceMemberAction}>
-                                        <input type="hidden" name="workspace_id" value={context.currentWorkspaceId} />
+                                        <input type="hidden" name="workspace_id" value={currentWorkspaceId} />
                                         <input type="hidden" name="member_user_id" value={member.user_id} />
                                         <button
                                           type="submit"
@@ -464,7 +465,7 @@ export default async function WorkspacesPage({
             ) : null}
 
             {context.currentWorkspaceId ? (
-              <section className="mt-6 rounded-xl border border-[var(--line)] bg-white p-4">
+              <section id="calendar-integracao" className="mt-6 rounded-xl border border-[var(--line)] bg-white p-4">
                 <h2 className="text-base font-semibold">Integracao Google Calendar (workspace ativo)</h2>
                 <p className="muted-text mt-1 text-sm">
                   Defina o calendar ID para sincronizacao de atividades. Sem calendar ID, a atividade fica apenas no sistema.
@@ -476,7 +477,7 @@ export default async function WorkspacesPage({
                   </div>
                 ) : canManageMembers ? (
                   <form action={updateWorkspaceCalendarIntegrationAction} className="mt-4 grid gap-3 md:grid-cols-3">
-                    <input type="hidden" name="workspace_id" value={context.currentWorkspaceId} />
+                    <input type="hidden" name="workspace_id" value={currentWorkspaceId} />
                     <label className="text-xs font-medium text-[var(--muted)] md:col-span-2">
                       Google Calendar ID
                       <input
@@ -522,7 +523,7 @@ export default async function WorkspacesPage({
                   Dados tecnicos para validar permissao e remocao de workspace.
                 </p>
                 <div className="mt-3 overflow-x-auto rounded-xl border border-[var(--line)]">
-                  <table className="min-w-full text-sm">
+                  <table className="mobile-table min-w-full text-sm">
                     <thead className="border-b border-[var(--line)] bg-[#f8f4ee]">
                       <tr>
                         <th className="px-4 py-3 text-left font-semibold">Nome</th>
@@ -537,11 +538,11 @@ export default async function WorkspacesPage({
                         const isCurrent = context.currentWorkspaceId === workspace.id;
                         return (
                           <tr key={`debug-${workspace.id}`} className="border-b border-[var(--line)] last:border-0">
-                            <td className="px-4 py-3">{workspace.name}</td>
-                            <td className="px-4 py-3">{workspace.slug}</td>
-                            <td className="px-4 py-3 font-mono text-xs">{workspace.id}</td>
-                            <td className="px-4 py-3">{workspaceRoleLabel(workspace.role)}</td>
-                            <td className="px-4 py-3">{isCurrent ? "Ativo" : "Inativo"}</td>
+                            <td className="px-4 py-3" data-label="Nome">{workspace.name}</td>
+                            <td className="px-4 py-3" data-label="Slug">{workspace.slug}</td>
+                            <td className="px-4 py-3 font-mono text-xs" data-label="Workspace ID">{workspace.id}</td>
+                            <td className="px-4 py-3" data-label="Meu papel">{workspaceRoleLabel(workspace.role)}</td>
+                            <td className="px-4 py-3" data-label="Status">{isCurrent ? "Ativo" : "Inativo"}</td>
                           </tr>
                         );
                       })}

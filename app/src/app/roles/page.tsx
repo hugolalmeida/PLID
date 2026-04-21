@@ -6,10 +6,10 @@ import {
   updateRoleAction,
 } from "./actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { type UserRole } from "@/lib/auth/roles";
 import { readCreateFeedback, type PageSearchParams } from "@/lib/ui/action-feedback";
 import { CreateFeedbackBanner } from "@/components/ui/create-feedback-banner";
 import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
+import { canWriteWorkspaceRole, getWorkspaceRoleForUser } from "@/lib/workspaces/permissions";
 
 type Organization = {
   id: string;
@@ -21,10 +21,6 @@ type Role = {
   name: string;
   responsibilities: string | null;
   organization_id: string;
-};
-
-type Profile = {
-  role: UserRole;
 };
 
 function firstValue(value: string | string[] | undefined) {
@@ -60,12 +56,6 @@ export default async function RolesPage({
     redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle<Profile>();
-
   const { data: organizations, error: organizationsError } = await supabase
     .from("organizations")
     .select("id, name")
@@ -88,13 +78,14 @@ export default async function RolesPage({
     throw new Error(rolesError.message);
   }
 
-  const canManage = profile?.role !== "visualizador";
+  const workspaceRole = await getWorkspaceRoleForUser(supabase, user.id, workspaceId);
+  const canManage = canWriteWorkspaceRole(workspaceRole);
   const editingRole =
     canManage && editingId ? roles.find((role) => role.id === editingId) || null : null;
   const closeEditPath = buildRolesPath();
 
   return (
-    <main className="mx-auto w-full max-w-6xl p-6 md:p-10">
+    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 md:p-10">
       <section className="surface-card p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -169,7 +160,7 @@ export default async function RolesPage({
         ) : null}
 
         <section className="mt-6 overflow-x-auto rounded-xl border border-[var(--line)] bg-white">
-          <table className="min-w-full text-sm">
+          <table className="mobile-table min-w-full text-sm">
             <thead className="border-b border-[var(--line)] bg-[#f8f4ee]">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Cargo</th>
@@ -184,14 +175,14 @@ export default async function RolesPage({
                   const openEditPath = buildRolesPath(role.id);
                   return (
                     <tr key={role.id} className="border-b border-[var(--line)] last:border-0">
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Cargo">
                         <p className="font-medium">{role.name}</p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Organizacao">
                         {organizations?.find((item) => item.id === role.organization_id)?.name || "-"}
                       </td>
-                      <td className="px-4 py-3">{role.responsibilities || "-"}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Responsabilidades">{role.responsibilities || "-"}</td>
+                      <td className="px-4 py-3" data-label="Acoes">
                         {canManage ? (
                           <div className="flex flex-nowrap items-center gap-2 whitespace-nowrap">
                             <Link

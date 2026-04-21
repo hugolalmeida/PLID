@@ -11,6 +11,7 @@ import {
   syncMeetingToGoogleCalendar,
 } from "@/lib/google/calendar";
 import { sendEmailWithGmail } from "@/lib/google/gmail";
+import { buildPlidEmailTemplate } from "@/lib/email/templates";
 
 function readValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -193,30 +194,29 @@ async function sendMeetingNotificationsToOrganizations(
 
   const dateBr = new Date(`${input.date}T12:00:00`).toLocaleDateString("pt-BR");
   const organizationsLabel = organizations.map((organization) => organization.name).join(", ");
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
 
   for (const recipient of uniquePeopleByEmail.values()) {
-    const body = [
-      `Ola, ${recipient.name}.`,
-      "",
-      "Voce foi incluido(a) em uma reuniao do PLID.",
-      "",
-      `Reuniao: ${input.title}`,
-      `Data: ${dateBr}`,
-      `Organizacoes: ${organizationsLabel}`,
-      input.notes ? `Notas: ${input.notes}` : "",
-      "",
-      "Acesse o sistema para mais detalhes e registro.",
-      "",
-      "PLID",
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const email = buildPlidEmailTemplate({
+      preheader: `Convite de reuniao: ${input.title}`,
+      title: "Novo convite de reuniao",
+      intro: `Ola, ${recipient.name}. Voce foi incluido(a) em uma reuniao no PLID.`,
+      rows: [
+        { label: "Reuniao", value: input.title },
+        { label: "Data", value: dateBr },
+        { label: "Organizacoes", value: organizationsLabel },
+        { label: "Notas", value: input.notes || "Sem notas adicionais" },
+      ],
+      ctaLabel: "Abrir reunioes",
+      ctaUrl: `${appUrl}/meetings`,
+    });
 
     try {
       const dispatch = await sendEmailWithGmail({
         to: recipient.email,
         subject: `[PLID] Convite de reuniao: ${input.title}`,
-        body,
+        text: email.text,
+        html: email.html,
       });
       await insertMeetingNotificationLog(supabase, {
         workspaceId: input.workspaceId,
@@ -469,26 +469,30 @@ export async function createMeetingAction(formData: FormData) {
   if (error) {
     redirect(`/meetings?create=error&message=${encodeURIComponent(error.message)}`);
   }
+  const meetingId = data?.id;
+  if (!meetingId) {
+    redirect("/meetings?create=error&message=Falha%20ao%20criar%20reuniao.");
+  }
 
   const relationUpdate = await replaceMeetingOrganizations(
     supabase,
     workspaceId,
-    data.id,
+    meetingId,
     organizationIds,
   );
 
   await logAuditEvent(supabase, {
     entityType: "meeting",
-    entityId: data.id,
+    entityId: meetingId,
     action: "create",
     payload: { title, date, notes: notes || null, status, organizationIds },
   });
 
-  await tryAutoSyncMeetingCalendar(supabase, data.id, workspaceId);
+  await tryAutoSyncMeetingCalendar(supabase, meetingId, workspaceId);
   if (!relationUpdate.setupMissing) {
     await sendMeetingNotificationsToOrganizations(supabase, {
       workspaceId,
-      meetingId: data.id,
+      meetingId,
       title,
       date,
       notes: notes || null,

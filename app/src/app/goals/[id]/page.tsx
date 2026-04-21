@@ -2,12 +2,8 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createGoalUpdateAction } from "./actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { type UserRole } from "@/lib/auth/roles";
 import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
-
-type Profile = {
-  role: UserRole;
-};
+import { canWriteWorkspaceRole, getWorkspaceRoleForUser } from "@/lib/workspaces/permissions";
 
 type Goal = {
   id: string;
@@ -61,12 +57,9 @@ export default async function GoalDetailPage({
     redirect("/login");
   }
   const workspaceId = await getCurrentWorkspaceId(supabase, user.id);
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle<Profile>();
+  if (!workspaceId) {
+    redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
+  }
 
   const [goalResult, updatesResult, peopleResult] = await Promise.all([
     supabase
@@ -107,11 +100,12 @@ export default async function GoalDetailPage({
 
   const updates = updatesResult.data || [];
   const people = peopleResult.data || [];
-  const canManage = profile?.role !== "visualizador";
+  const workspaceRole = await getWorkspaceRoleForUser(supabase, user.id, workspaceId);
+  const canManage = canWriteWorkspaceRole(workspaceRole);
   const progress = progressPercent(goal.current_value, goal.target_value);
 
   return (
-    <main className="mx-auto w-full max-w-5xl p-6 md:p-10">
+    <main className="mx-auto w-full max-w-5xl p-4 sm:p-6 md:p-10">
       <section className="surface-card p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>

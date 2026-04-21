@@ -7,15 +7,11 @@ import {
   updateMeetingAction,
 } from "./actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { type UserRole } from "@/lib/auth/roles";
 import { readCreateFeedback, type PageSearchParams } from "@/lib/ui/action-feedback";
 import { CreateFeedbackBanner } from "@/components/ui/create-feedback-banner";
 import { ExportActions } from "@/components/ui/export-actions";
 import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
-
-type Profile = {
-  role: UserRole;
-};
+import { canWriteWorkspaceRole, getWorkspaceRoleForUser } from "@/lib/workspaces/permissions";
 
 type Meeting = {
   id: string;
@@ -118,12 +114,6 @@ export default async function MeetingsPage({
     redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle<Profile>();
-
   const meetingsWithStatus = await supabase
     .from("meetings")
     .select("id, title, date, notes, minutes, status")
@@ -209,7 +199,8 @@ export default async function MeetingsPage({
     meetingCalendarEvents.map((event) => [event.meeting_id, event]),
   );
 
-  const canManage = profile?.role !== "visualizador";
+  const workspaceRole = await getWorkspaceRoleForUser(supabase, user.id, workspaceId);
+  const canManage = canWriteWorkspaceRole(workspaceRole);
   const today = new Date();
   const todayIso = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
@@ -257,7 +248,7 @@ export default async function MeetingsPage({
   });
 
   return (
-    <main className="mx-auto w-full max-w-6xl p-6 md:p-10">
+    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 md:p-10">
       <section className="surface-card p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -420,7 +411,7 @@ export default async function MeetingsPage({
               </span>
             </div>
           </div>
-          <table className="min-w-full text-sm">
+          <table className="mobile-table min-w-full text-sm">
             <thead className="border-b border-[var(--line)] bg-[#f8f4ee]">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Titulo</th>
@@ -445,11 +436,11 @@ export default async function MeetingsPage({
 
                   return (
                     <tr key={meeting.id} className="border-b border-[var(--line)] last:border-0">
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Titulo">
                       <p className="font-medium">{meeting.title}</p>
                     </td>
-                    <td className="px-4 py-3">{meeting.date}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Data">{meeting.date}</td>
+                    <td className="px-4 py-3" data-label="Status">
                       <span
                         title={meetingStatusLabel(meeting.status)}
                         aria-label={meetingStatusLabel(meeting.status)}
@@ -458,7 +449,7 @@ export default async function MeetingsPage({
                         <span className="sr-only">{meetingStatusLabel(meeting.status)}</span>
                       </span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Organizacoes">
                       {meetingOrganizationsSetupMissing ? (
                         <span className="text-xs text-amber-700">Setup pendente</span>
                       ) : (
@@ -469,8 +460,8 @@ export default async function MeetingsPage({
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3">{meeting.notes || "-"}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Notas">{meeting.notes || "-"}</td>
+                    <td className="px-4 py-3" data-label="Documento">
                       <Link
                         href={`/meetings/${meeting.id}/registro`}
                         className="inline-flex rounded-md border border-[var(--line)] p-1.5 text-[var(--accent)]"
@@ -482,7 +473,7 @@ export default async function MeetingsPage({
                         </svg>
                       </Link>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Calendario">
                       {calendarSetupMissing ? (
                         <p className="text-xs text-amber-700">Setup pendente</p>
                       ) : syncedEvent ? (
@@ -494,7 +485,7 @@ export default async function MeetingsPage({
                         <p className="text-xs text-[var(--muted)]">Nao sincronizada</p>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Acoes">
                       {canManage ? (
                         <div className="flex flex-nowrap items-center gap-2 whitespace-nowrap">
                           <Link

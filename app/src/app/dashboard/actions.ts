@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getEditableGoalStatus, type GoalStoredStatus } from "@/lib/goals/effective-status";
 import { logAuditEvent } from "@/lib/audit/log-event";

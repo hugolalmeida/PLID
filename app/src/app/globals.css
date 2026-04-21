@@ -219,3 +219,46 @@ body {
     transition: none;
   }
 }
+
+@media (max-width: 767px) {
+  .mobile-table {
+    min-width: 100%;
+  }
+
+  .mobile-table thead {
+    display: none;
+  }
+
+  .mobile-table tbody,
+  .mobile-table tr,
+  .mobile-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .mobile-table tr {
+    border-bottom: 1px solid var(--line);
+    padding: 0.35rem 0.25rem;
+  }
+
+  .mobile-table td {
+    border: 0;
+    padding: 0.38rem 0.75rem;
+  }
+
+  .mobile-table td[data-label] {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+  }
+
+  .mobile-table td[data-label]::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+}

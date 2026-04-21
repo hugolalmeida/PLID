@@ -1,60 +1,85 @@
-# PLID - Plataforma de Lideranca da Igreja
+# PLID App
 
-Base do MVP em Next.js + Supabase para organograma, atividades, reunioes e acompanhamento da lideranca.
+[![Status](https://img.shields.io/badge/status-production%20candidate-0f766e)](./docs/PROJECT_HANDOFF_STATUS.md)
+[![Next.js](https://img.shields.io/badge/next.js-16-black)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/typescript-strict-3178c6)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/supabase-rls%20enabled-3ecf8e)](https://supabase.com/)
+[![Deploy](https://img.shields.io/badge/deploy-vercel-black)](https://vercel.com/)
+
+Aplicacao principal do PLID para operacao de lideranca, com modulos de cadastro, execucao, acompanhamento e governanca.
 
 ## Requisitos
+
 - Node.js 22+
 - npm 11+
 
-## Primeiro uso
-1. Instale dependencias:
+## Setup local
+
+1. Instalar dependencias:
 
 ```bash
 npm install
 ```
 
-2. Crie o arquivo `.env.local` com base em `.env.example`:
+2. Criar `.env.local`:
 
 ```bash
 cp .env.example .env.local
 ```
 
-3. Preencha:
+3. Preencher variaveis obrigatorias:
+
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY` (necessario para job de notificacoes)
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `CRON_SECRET`
 
-4. Rode o projeto:
+4. Subir ambiente:
 
 ```bash
 npm run dev
 ```
 
+## Scripts
+
+- `npm run dev` -> ambiente local
+- `npm run lint` -> validacao ESLint
+- `npm run build` -> build de producao
+- `npm run start` -> start da build
+
+## Estrutura funcional
+
+- `/dashboard`
+- `/organograma`
+- `/tasks`
+- `/meetings`
+- `/goals`
+- `/notifications`
+- `/auditoria`
+- `/workspaces`
+- `/profile`
+
+## Job de notificacoes
+
+- Endpoint: `POST /api/jobs/notifications`
+- Header: `Authorization: Bearer <CRON_SECRET>`
+- Cron configurado em `vercel.json`
+
 ## Documentacao
-- Documento de retomada (status + proximos passos): `docs/PROJECT_HANDOFF_STATUS.md`
-- Roadmap e arquitetura inicial: `docs/ROADMAP_MVP.md`
-- Setup de auth/perfis no Supabase: `docs/SUPABASE_AUTH_SETUP.md`
-- Setup de organizacoes no Supabase: `docs/SUPABASE_ORGANIZATIONS_SETUP.md`
-- Setup de cargos e pessoas no Supabase: `docs/SUPABASE_ROLES_PEOPLE_SETUP.md`
-- Setup de reunioes e atividades no Supabase: `docs/SUPABASE_MEETINGS_TASKS_SETUP.md`
-- Setup para calendar_events e horario em tasks: `docs/SUPABASE_CALENDAR_EVENTS_SETUP.md`
-- Setup de metas e historico no Supabase: `docs/SUPABASE_GOALS_SETUP.md`
-- Setup de logs de notificacoes: `docs/SUPABASE_NOTIFICATIONS_SETUP.md`
-- Lembrete de evolucao dos e-mails: `docs/EMAIL_NOTIFICATIONS_REMINDER.md`
-- Seed de exemplo para testar organograma: `docs/SUPABASE_ORGANOGRAMA_SEED_EXEMPLO.md`
-- Seed visual para dashboard: `docs/SUPABASE_DASHBOARD_VISUAL_SEED.md`
 
-## Automacao de notificacoes
-- Endpoint de job: `/api/jobs/notifications`
-- Metodo: `POST`
-- Header obrigatorio: `Authorization: Bearer <CRON_SECRET>`
-- Cron de deploy configurado em `vercel.json` (a cada 6 horas)
-- Requer `CRON_SECRET` no ambiente do deploy
+- Handoff: [`docs/PROJECT_HANDOFF_STATUS.md`](./docs/PROJECT_HANDOFF_STATUS.md)
+- Auth: [`docs/SUPABASE_AUTH_SETUP.md`](./docs/SUPABASE_AUTH_SETUP.md)
+- Workspaces: [`docs/SUPABASE_WORKSPACES_SETUP.md`](./docs/SUPABASE_WORKSPACES_SETUP.md)
+- Regras de permissao: [`docs/SUPABASE_WORKSPACE_ROLE_PERMISSIONS_PATCH.md`](./docs/SUPABASE_WORKSPACE_ROLE_PERMISSIONS_PATCH.md)
+- Notificacoes: [`docs/SUPABASE_NOTIFICATIONS_SETUP.md`](./docs/SUPABASE_NOTIFICATIONS_SETUP.md)
+- Auditoria: [`docs/SUPABASE_AUDIT_SETUP.md`](./docs/SUPABASE_AUDIT_SETUP.md)
 
-## Stack
-- Next.js (App Router)
-- React
-- Supabase (Auth + Postgres + RLS)
-- Google Calendar API
-- Gmail API
-- Vercel
+## Deploy (Vercel)
+
+Antes de publicar:
+- confirme env vars no projeto da Vercel
+- execute `npm run lint`
+- execute `npm run build`
+
+Dominio atual de producao:
+- `https://plid-platform.vercel.app/`

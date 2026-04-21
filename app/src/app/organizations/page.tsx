@@ -6,20 +6,16 @@ import {
   updateOrganizationAction,
 } from "./actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { type UserRole } from "@/lib/auth/roles";
 import { readCreateFeedback, type PageSearchParams } from "@/lib/ui/action-feedback";
 import { CreateFeedbackBanner } from "@/components/ui/create-feedback-banner";
 import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
+import { canWriteWorkspaceRole, getWorkspaceRoleForUser } from "@/lib/workspaces/permissions";
 
 type Organization = {
   id: string;
   name: string;
   type: string;
   parent_id: string | null;
-};
-
-type Profile = {
-  role: UserRole;
 };
 
 function firstValue(value: string | string[] | undefined) {
@@ -55,12 +51,6 @@ export default async function OrganizationsPage({
     redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle<Profile>();
-
   const { data: organizations, error } = await supabase
     .from("organizations")
     .select("id, name, type, parent_id")
@@ -72,7 +62,8 @@ export default async function OrganizationsPage({
     throw new Error(error.message);
   }
 
-  const canManage = profile?.role !== "visualizador";
+  const workspaceRole = await getWorkspaceRoleForUser(supabase, user.id, workspaceId);
+  const canManage = canWriteWorkspaceRole(workspaceRole);
   const editingOrganization =
     canManage && editingId
       ? organizations?.find((organization) => organization.id === editingId) || null
@@ -80,7 +71,7 @@ export default async function OrganizationsPage({
   const closeEditPath = buildOrganizationsPath();
 
   return (
-    <main className="mx-auto w-full max-w-6xl p-6 md:p-10">
+    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 md:p-10">
       <section className="surface-card p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -155,13 +146,13 @@ export default async function OrganizationsPage({
           </details>
         ) : (
           <p className="mt-6 text-sm text-amber-700">
-            Seu perfil e visualizador. Voce pode ver a estrutura, mas nao pode
+            Seu papel no workspace e somente leitura. Voce pode ver a estrutura, mas nao pode
             editar.
           </p>
         )}
 
         <section className="mt-6 overflow-x-auto rounded-xl border border-[var(--line)] bg-white">
-          <table className="min-w-full text-sm">
+          <table className="mobile-table min-w-full text-sm">
             <thead className="border-b border-[var(--line)] bg-[#f8f4ee]">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Nome</th>
@@ -180,12 +171,12 @@ export default async function OrganizationsPage({
 
                   return (
                     <tr key={organization.id} className="border-b border-[var(--line)] last:border-0">
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Nome">
                         <p className="font-medium">{organization.name}</p>
                       </td>
-                      <td className="px-4 py-3">{organization.type}</td>
-                      <td className="px-4 py-3">{parentName}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Tipo">{organization.type}</td>
+                      <td className="px-4 py-3" data-label="Organizacao pai">{parentName}</td>
+                      <td className="px-4 py-3" data-label="Acoes">
                         {canManage ? (
                           <div className="flex flex-nowrap items-center gap-2 whitespace-nowrap">
                             <Link

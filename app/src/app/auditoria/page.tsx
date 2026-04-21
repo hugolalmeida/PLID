@@ -121,7 +121,7 @@ export default async function AuditoriaPage({
   ).sort();
 
   return (
-    <main className="mx-auto w-full max-w-6xl p-6 md:p-10">
+    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 md:p-10">
       <section className="surface-card p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -205,7 +205,7 @@ export default async function AuditoriaPage({
         </section>
 
         <section className="mt-6 overflow-x-auto rounded-xl border border-[var(--line)] bg-white">
-          <table className="min-w-full text-sm">
+          <table className="mobile-table min-w-full text-sm">
             <thead className="border-b border-[var(--line)] bg-[#f8f4ee]">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Quando</th>
@@ -220,24 +220,24 @@ export default async function AuditoriaPage({
               {logs.length ? (
                 logs.map((log) => (
                   <tr key={log.id} className="border-b border-[var(--line)] last:border-0">
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Quando">
                       {new Date(log.created_at).toLocaleString("pt-BR")}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Acao">
                       <span
                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${actionBadgeClass(log.action)}`}
                       >
                         {actionLabel(log.action)}
                       </span>
                     </td>
-                    <td className="px-4 py-3">{log.entity_type}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Entidade">{log.entity_type}</td>
+                    <td className="px-4 py-3" data-label="ID Entidade">
                       <code className="text-xs">{log.entity_id}</code>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Usuario">
                       <span className="text-xs">{actorDisplay(log)}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Payload">
                       <details>
                         <summary className="cursor-pointer text-xs text-[var(--accent)]">
                           Ver payload

@@ -20,7 +20,7 @@ function startsWithAny(pathname: string, routes: string[]) {
   return routes.some((route) => pathname.startsWith(route));
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { response, user } = await updateSession(request);
   const { pathname } = request.nextUrl;
 

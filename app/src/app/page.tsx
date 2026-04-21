@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getUserWorkspaceContext, type WorkspaceRole } from "@/lib/workspaces/server";
 
@@ -17,18 +18,29 @@ export default async function HomePage() {
 
   if (!user) {
     return (
-      <main className="mx-auto w-full max-w-5xl p-6 md:p-10">
+      <main className="mx-auto w-full max-w-5xl p-4 sm:p-6 md:p-10">
         <section className="surface-card p-6 md:p-10">
-          <p className="text-xs font-semibold tracking-[0.16em] text-[var(--accent)] uppercase">
-            PLID
-          </p>
-          <h1 className="mt-3 text-3xl font-semibold leading-tight md:text-4xl">
-            Plataforma de Lideranca
-          </h1>
-          <p className="muted-text mt-4 max-w-3xl">
-            Entre na sua conta para acessar dashboard, organograma, metas,
-            reunioes e atividades por workspace.
-          </p>
+          <div className="flex flex-col items-center gap-6 text-center md:flex-row md:items-center md:justify-center md:gap-8 md:text-left">
+            <Image
+              src="/plid_mark.png"
+              alt="PLID"
+              width={140}
+              height={140}
+              className="h-24 w-24 object-contain md:h-32 md:w-32"
+              priority
+            />
+            <div>
+              <p className="text-xs font-semibold tracking-[0.16em] text-[var(--accent)] uppercase">
+                PLID
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold leading-tight md:text-5xl">
+                Plataforma de Lideranca
+              </h1>
+              <p className="muted-text mt-3 max-w-2xl text-sm md:text-base">
+                Organize workspaces, equipes, metas, reunioes e atividades em um unico painel.
+              </p>
+            </div>
+          </div>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href="/login"
@@ -52,7 +64,7 @@ export default async function HomePage() {
     profileResult.data?.full_name?.trim() || user.email || "usuario";
 
   return (
-    <main className="mx-auto w-full max-w-6xl p-6 md:p-10">
+    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 md:p-10">
       <section className="surface-card p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -79,6 +91,12 @@ export default async function HomePage() {
               className="rounded-lg bg-[var(--accent)] px-3 py-2 text-sm font-semibold text-white"
             >
               Gerenciar workspaces
+            </Link>
+            <Link
+              href="/workspaces#calendar-integracao"
+              className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm font-medium"
+            >
+              Configurar calendario
             </Link>
           </div>
         </div>

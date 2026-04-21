@@ -6,10 +6,10 @@ import {
   updatePersonAction,
 } from "./actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { type UserRole } from "@/lib/auth/roles";
 import { readCreateFeedback, type PageSearchParams } from "@/lib/ui/action-feedback";
 import { CreateFeedbackBanner } from "@/components/ui/create-feedback-banner";
 import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
+import { canWriteWorkspaceRole, getWorkspaceRoleForUser } from "@/lib/workspaces/permissions";
 
 type Person = {
   id: string;
@@ -17,10 +17,6 @@ type Person = {
   email: string | null;
   phone: string | null;
   active: boolean;
-};
-
-type Profile = {
-  role: UserRole;
 };
 
 type Role = {
@@ -74,12 +70,6 @@ export default async function PeoplePage({
   if (!workspaceId) {
     redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
   }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle<Profile>();
 
   const [peopleResult, rolesResult, personRolesResult, organizationsResult] = await Promise.all([
     supabase
@@ -159,13 +149,14 @@ export default async function PeoplePage({
     });
   });
 
-  const canManage = profile?.role !== "visualizador";
+  const workspaceRole = await getWorkspaceRoleForUser(supabase, user.id, workspaceId);
+  const canManage = canWriteWorkspaceRole(workspaceRole);
   const editingPerson =
     canManage && editingId ? people.find((person) => person.id === editingId) || null : null;
   const closeEditPath = buildPeoplePath();
 
   return (
-    <main className="mx-auto w-full max-w-6xl p-6 md:p-10">
+    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 md:p-10">
       <section className="surface-card p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -262,7 +253,7 @@ export default async function PeoplePage({
         ) : null}
 
         <section className="mt-6 overflow-x-auto rounded-xl border border-[var(--line)] bg-white">
-          <table className="min-w-full text-sm">
+          <table className="mobile-table min-w-full text-sm">
             <thead className="border-b border-[var(--line)] bg-[#f8f4ee]">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Nome</th>
@@ -279,14 +270,14 @@ export default async function PeoplePage({
                   const openEditPath = buildPeoplePath(person.id);
                   return (
                     <tr key={person.id} className="border-b border-[var(--line)] last:border-0">
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Nome">
                         <p className="font-medium">{person.name}</p>
                       </td>
-                      <td className="px-4 py-3">{currentRoleByPerson.get(person.id) || "-"}</td>
-                      <td className="px-4 py-3">{person.email || "-"}</td>
-                      <td className="px-4 py-3">{person.phone || "-"}</td>
-                      <td className="px-4 py-3">{person.active ? "Ativo" : "Inativo"}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Cargo atual">{currentRoleByPerson.get(person.id) || "-"}</td>
+                      <td className="px-4 py-3" data-label="E-mail">{person.email || "-"}</td>
+                      <td className="px-4 py-3" data-label="Telefone">{person.phone || "-"}</td>
+                      <td className="px-4 py-3" data-label="Status">{person.active ? "Ativo" : "Inativo"}</td>
+                      <td className="px-4 py-3" data-label="Acoes">
                         {canManage ? (
                           <div className="flex flex-nowrap items-center gap-2 whitespace-nowrap">
                             <Link

@@ -7,15 +7,11 @@ import {
   updateTaskAction,
 } from "./actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { type UserRole } from "@/lib/auth/roles";
 import { readCreateFeedback, type PageSearchParams } from "@/lib/ui/action-feedback";
 import { CreateFeedbackBanner } from "@/components/ui/create-feedback-banner";
 import { ExportActions } from "@/components/ui/export-actions";
 import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
-
-type Profile = {
-  role: UserRole;
-};
+import { canWriteWorkspaceRole, getWorkspaceRoleForUser } from "@/lib/workspaces/permissions";
 
 type Person = {
   id: string;
@@ -30,6 +26,19 @@ type Organization = {
 type Meeting = {
   id: string;
   title: string;
+};
+
+type Role = {
+  id: string;
+  name: string;
+  organization_id: string;
+};
+
+type PersonRole = {
+  person_id: string;
+  role_id: string;
+  start_date: string | null;
+  end_date: string | null;
 };
 
 type Task = {
@@ -141,18 +150,14 @@ export default async function TasksPage({
     redirect("/workspaces?create=error&message=Selecione%20ou%20crie%20um%20workspace.");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle<Profile>();
-
   const [
     tasksResult,
     peopleResult,
     organizationsResult,
     meetingsResult,
     calendarEventsResult,
+    rolesResult,
+    personRolesResult,
   ] =
     await Promise.all([
       supabase
@@ -186,6 +191,16 @@ export default async function TasksPage({
         .select("task_id, google_event_id, synced_at")
         .eq("workspace_id", workspaceId)
         .returns<CalendarEvent[]>(),
+      supabase
+        .from("roles")
+        .select("id, name, organization_id")
+        .eq("workspace_id", workspaceId)
+        .returns<Role[]>(),
+      supabase
+        .from("person_roles")
+        .select("person_id, role_id, start_date, end_date")
+        .eq("workspace_id", workspaceId)
+        .returns<PersonRole[]>(),
     ]);
 
   const firstError =
@@ -193,7 +208,9 @@ export default async function TasksPage({
     peopleResult.error ||
     organizationsResult.error ||
     meetingsResult.error ||
-    calendarEventsResult.error;
+    calendarEventsResult.error ||
+    rolesResult.error ||
+    personRolesResult.error;
 
   if (firstError) {
     throw new Error(firstError.message);
@@ -204,12 +221,42 @@ export default async function TasksPage({
   const organizations = organizationsResult.data || [];
   const meetings = meetingsResult.data || [];
   const calendarEvents = calendarEventsResult.data || [];
+  const roles = rolesResult.data || [];
+  const personRoles = personRolesResult.data || [];
   const calendarByTaskId = new Map(
     calendarEvents.map((event) => [event.task_id, event]),
   );
-  const canManage = profile?.role !== "visualizador";
+  const organizationNameById = new Map(
+    organizations.map((organization) => [organization.id, organization.name]),
+  );
+  const roleById = new Map(roles.map((role) => [role.id, role]));
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const personLabelById = new Map<string, string>();
+
+  for (const person of people) {
+    const currentLinks = personRoles
+      .filter((link) => {
+        if (link.person_id !== person.id) return false;
+        const startsOk = !link.start_date || link.start_date <= todayIso;
+        const endsOk = !link.end_date || link.end_date >= todayIso;
+        return startsOk && endsOk;
+      })
+      .sort((a, b) => (b.start_date || "").localeCompare(a.start_date || ""));
+
+    const currentRole = currentLinks[0] ? roleById.get(currentLinks[0].role_id) : null;
+    if (!currentRole) {
+      personLabelById.set(person.id, person.name);
+      continue;
+    }
+
+    const orgName = organizationNameById.get(currentRole.organization_id) || "Organizacao";
+    personLabelById.set(person.id, `${person.name} (${currentRole.name} - ${orgName})`);
+  }
+
+  const workspaceRole = await getWorkspaceRoleForUser(supabase, user.id, workspaceId);
+  const canManage = canWriteWorkspaceRole(workspaceRole);
   const today = new Date();
-  const todayIso = new Date(
+  const todayDateIso = new Date(
     Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
   )
     .toISOString()
@@ -232,15 +279,15 @@ export default async function TasksPage({
     }
 
     if (selectedDeadline === "overdue") {
-      return task.due_date < todayIso;
+      return task.due_date < todayDateIso;
     }
 
     if (selectedDeadline === "today") {
-      return task.due_date === todayIso;
+      return task.due_date === todayDateIso;
     }
 
     if (selectedDeadline === "next_7d") {
-      return task.due_date >= todayIso && task.due_date <= next7Iso;
+      return task.due_date >= todayDateIso && task.due_date <= next7Iso;
     }
 
     if (selectedDeadline === "no_meeting") {
@@ -260,7 +307,7 @@ export default async function TasksPage({
   });
 
   return (
-    <main className="mx-auto w-full max-w-6xl p-6 md:p-10">
+    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 md:p-10">
       <section className="surface-card p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -384,7 +431,7 @@ export default async function TasksPage({
                     </option>
                     {people.map((person) => (
                       <option key={person.id} value={person.id}>
-                        {person.name}
+                        {personLabelById.get(person.id) || person.name}
                       </option>
                     ))}
                   </select>
@@ -470,7 +517,7 @@ export default async function TasksPage({
               </span>
             </div>
           </div>
-          <table className="min-w-full text-sm">
+          <table className="mobile-table min-w-full text-sm">
             <thead className="border-b border-[var(--line)] bg-[#f8f4ee]">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Titulo</th>
@@ -495,17 +542,17 @@ export default async function TasksPage({
                   });
                   return (
                     <tr key={task.id} className="border-b border-[var(--line)] last:border-0">
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Titulo">
                         <p className="font-medium">{task.title}</p>
                         <p className="muted-text line-clamp-2 text-xs">{task.description || "-"}</p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Organizacao">
                         {organizations.find((organization) => organization.id === task.organization_id)
                           ?.name || "-"}
                       </td>
-                      <td className="px-4 py-3">{formatDateBr(task.due_date)}</td>
-                      <td className="px-4 py-3">{task.due_time || "-"}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Prazo">{formatDateBr(task.due_date)}</td>
+                      <td className="px-4 py-3" data-label="Horario">{task.due_time || "-"}</td>
+                      <td className="px-4 py-3" data-label="Status">
                         <span
                           title={statusLabel(task.status)}
                           aria-label={statusLabel(task.status)}
@@ -514,12 +561,12 @@ export default async function TasksPage({
                           <span className="sr-only">{statusLabel(task.status)}</span>
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Reuniao">
                         {task.meeting_id
                           ? meetings.find((meeting) => meeting.id === task.meeting_id)?.title || "-"
                           : "-"}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Calendario">
                         {syncedEvent ? (
                           <p className="text-xs text-emerald-700">
                             Sincronizada em{" "}
@@ -529,7 +576,7 @@ export default async function TasksPage({
                           <p className="text-xs text-[var(--muted)]">Nao sincronizada</p>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3" data-label="Acoes">
                         {canManage ? (
                           <div className="flex flex-nowrap items-center gap-2 whitespace-nowrap">
                             <Link
@@ -627,7 +674,7 @@ export default async function TasksPage({
                   >
                     {people.map((person) => (
                       <option key={person.id} value={person.id}>
-                        {person.name}
+                        {personLabelById.get(person.id) || person.name}
                       </option>
                     ))}
                   </select>

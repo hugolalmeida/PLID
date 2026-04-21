@@ -1,18 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { type UserRole } from "@/lib/auth/roles";
 import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 import { type PageSearchParams } from "@/lib/ui/action-feedback";
+import { canWriteWorkspaceRole, getWorkspaceRoleForUser } from "@/lib/workspaces/permissions";
 import {
   runNotificationsSweepAction,
   runSweepAndSendNotificationsAction,
   sendQueuedNotificationsAction,
 } from "./actions";
-
-type Profile = {
-  role: UserRole;
-};
 
 type NotificationLog = {
   id: string;
@@ -61,27 +57,21 @@ export default async function NotificationsPage({
   periodStart.setDate(periodStart.getDate() - selectedDays);
   const periodStartIso = periodStart.toISOString();
 
-  const [profileResult, logsResult] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle<Profile>(),
-    supabase
+  const logsResult = await supabase
       .from("notifications_log")
       .select("id, task_id, type, recipient_email, sent_at, status, payload")
       .eq("workspace_id", workspaceId)
       .gte("sent_at", periodStartIso)
       .order("sent_at", { ascending: false })
       .limit(50)
-      .returns<NotificationLog[]>(),
-  ]);
+      .returns<NotificationLog[]>();
 
-  if (profileResult.error || logsResult.error) {
-    throw new Error(profileResult.error?.message || logsResult.error?.message);
+  if (logsResult.error) {
+    throw new Error(logsResult.error.message);
   }
 
-  const canManage = profileResult.data?.role !== "visualizador";
+  const workspaceRole = await getWorkspaceRoleForUser(supabase, user.id, workspaceId);
+  const canManage = canWriteWorkspaceRole(workspaceRole);
   const logs = logsResult.data || [];
   const today = new Date().toISOString().slice(0, 10);
   const todayCount = logs.filter((log) => log.sent_at.slice(0, 10) === today).length;
@@ -94,7 +84,7 @@ export default async function NotificationsPage({
   );
 
   return (
-    <main className="mx-auto w-full max-w-6xl p-6 md:p-10">
+    <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 md:p-10">
       <section className="surface-card p-6 md:p-8">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -212,7 +202,7 @@ export default async function NotificationsPage({
         ) : null}
 
         <section className="mt-6 overflow-x-auto rounded-xl border border-[var(--line)] bg-white">
-          <table className="min-w-full text-sm">
+          <table className="mobile-table min-w-full text-sm">
             <thead className="border-b border-[var(--line)] bg-[#f8f4ee]">
               <tr>
                 <th className="px-4 py-3 text-left font-semibold">Tipo</th>
@@ -227,14 +217,14 @@ export default async function NotificationsPage({
               {logs.length ? (
                 logs.map((log) => (
                   <tr key={log.id} className="border-b border-[var(--line)] last:border-0">
-                    <td className="px-4 py-3">{typeLabel(log.type)}</td>
-                    <td className="px-4 py-3 font-mono text-xs">{log.task_id.slice(0, 8)}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" data-label="Tipo">{typeLabel(log.type)}</td>
+                    <td className="px-4 py-3 font-mono text-xs" data-label="Task">{log.task_id.slice(0, 8)}</td>
+                    <td className="px-4 py-3" data-label="Destinatario">
                       {log.recipient_email || log.payload?.recipient_profile || "-"}
                     </td>
-                    <td className="px-4 py-3">{log.status}</td>
-                    <td className="px-4 py-3">{new Date(log.sent_at).toLocaleString("pt-BR")}</td>
-                    <td className="px-4 py-3">{log.payload?.reason || "-"}</td>
+                    <td className="px-4 py-3" data-label="Status">{log.status}</td>
+                    <td className="px-4 py-3" data-label="Data">{new Date(log.sent_at).toLocaleString("pt-BR")}</td>
+                    <td className="px-4 py-3" data-label="Resumo">{log.payload?.reason || "-"}</td>
                   </tr>
                 ))
               ) : (
