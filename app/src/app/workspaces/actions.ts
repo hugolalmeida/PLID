@@ -627,3 +627,62 @@ export async function transferWorkspaceOwnershipAction(formData: FormData) {
     "/workspaces?create=success&message=Ownership%20transferido%20com%20sucesso.%20Voce%20agora%20e%20admin.",
   );
 }
+
+export async function updateWorkspaceCalendarIntegrationAction(formData: FormData) {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const workspaceId = String(formData.get("workspace_id") || "").trim();
+  const calendarId = String(formData.get("google_calendar_id") || "").trim();
+  const timeZone = String(formData.get("google_calendar_timezone") || "").trim();
+
+  if (!workspaceId) {
+    redirect("/workspaces?create=error&message=Workspace%20invalido.");
+  }
+
+  const actorMembership = await supabase
+    .from("workspace_members")
+    .select("role")
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", user.id)
+    .maybeSingle<{ role: WorkspaceMemberRole }>();
+
+  if (
+    actorMembership.error ||
+    !actorMembership.data ||
+    (actorMembership.data.role !== "owner" && actorMembership.data.role !== "admin")
+  ) {
+    redirect(
+      "/workspaces?create=error&message=Voce%20nao%20tem%20permissao%20para%20editar%20a%20integracao%20deste%20workspace.",
+    );
+  }
+
+  const { error } = await supabase.from("workspace_integrations").upsert(
+    {
+      workspace_id: workspaceId,
+      google_calendar_id: calendarId || null,
+      google_calendar_timezone: timeZone || "America/Sao_Paulo",
+    },
+    { onConflict: "workspace_id" },
+  );
+
+  if (error) {
+    const isMissingTable = error.message.toLowerCase().includes("workspace_integrations");
+    if (isMissingTable) {
+      redirect(
+        "/workspaces?create=error&message=Tabela%20workspace_integrations%20nao%20encontrada.%20Rode%20o%20SQL%20SUPABASE_WORKSPACE_INTEGRATIONS_SETUP.md.",
+      );
+    }
+    redirect(`/workspaces?create=error&message=${encodeURIComponent(error.message)}`);
+  }
+
+  revalidatePath("/workspaces");
+  revalidatePath("/tasks");
+  redirect("/workspaces?create=success&message=Integracao%20de%20calendario%20atualizada.");
+}

@@ -26,13 +26,20 @@ type Profile = {
 type Role = {
   id: string;
   name: string;
+  organization_id: string;
 };
 
 type PersonRole = {
+  id?: string;
   person_id: string;
   role_id: string;
   start_date: string | null;
   end_date: string | null;
+};
+
+type Organization = {
+  id: string;
+  name: string;
 };
 
 function firstValue(value: string | string[] | undefined) {
@@ -74,7 +81,7 @@ export default async function PeoplePage({
     .eq("id", user.id)
     .maybeSingle<Profile>();
 
-  const [peopleResult, rolesResult, personRolesResult] = await Promise.all([
+  const [peopleResult, rolesResult, personRolesResult, organizationsResult] = await Promise.all([
     supabase
       .from("people")
       .select("id, name, email, phone, active")
@@ -83,7 +90,7 @@ export default async function PeoplePage({
       .returns<Person[]>(),
     supabase
       .from("roles")
-      .select("id, name")
+      .select("id, name, organization_id")
       .eq("workspace_id", workspaceId)
       .order("name", { ascending: true })
       .returns<Role[]>(),
@@ -92,9 +99,19 @@ export default async function PeoplePage({
       .select("person_id, role_id, start_date, end_date")
       .eq("workspace_id", workspaceId)
       .returns<PersonRole[]>(),
+    supabase
+      .from("organizations")
+      .select("id, name")
+      .eq("workspace_id", workspaceId)
+      .order("name", { ascending: true })
+      .returns<Organization[]>(),
   ]);
 
-  const firstError = peopleResult.error || rolesResult.error || personRolesResult.error;
+  const firstError =
+    peopleResult.error ||
+    rolesResult.error ||
+    personRolesResult.error ||
+    organizationsResult.error;
   if (firstError) {
     throw new Error(firstError.message);
   }
@@ -102,9 +119,22 @@ export default async function PeoplePage({
   const people = peopleResult.data || [];
   const roles = rolesResult.data || [];
   const personRoles = personRolesResult.data || [];
-  const roleNameById = new Map(roles.map((role) => [role.id, role.name]));
+  const organizations = organizationsResult.data || [];
+  const organizationNameById = new Map(
+    organizations.map((organization) => [organization.id, organization.name]),
+  );
+  const roleLabelById = new Map(
+    roles.map((role) => [
+      role.id,
+      `${role.name} - ${organizationNameById.get(role.organization_id) || "Organizacao"}`,
+    ]),
+  );
   const todayIso = new Date().toISOString().slice(0, 10);
   const currentRoleByPerson = new Map<string, string>();
+  const currentRoleDataByPerson = new Map<
+    string,
+    { roleId: string; startDate: string | null; endDate: string | null }
+  >();
 
   people.forEach((person) => {
     const activeLinks = personRoles
@@ -121,7 +151,12 @@ export default async function PeoplePage({
       });
 
     const current = activeLinks[0];
-    currentRoleByPerson.set(person.id, current ? roleNameById.get(current.role_id) || "-" : "-");
+    currentRoleByPerson.set(person.id, current ? roleLabelById.get(current.role_id) || "-" : "-");
+    currentRoleDataByPerson.set(person.id, {
+      roleId: current?.role_id || "",
+      startDate: current?.start_date || null,
+      endDate: current?.end_date || null,
+    });
   });
 
   const canManage = profile?.role !== "visualizador";
@@ -199,7 +234,8 @@ export default async function PeoplePage({
                     <option value="">Sem cargo inicial</option>
                     {roles.map((role) => (
                       <option key={role.id} value={role.id}>
-                        {role.name}
+                        {role.name} -{" "}
+                        {organizationNameById.get(role.organization_id) || "Organizacao"}
                       </option>
                     ))}
                   </select>
@@ -347,6 +383,40 @@ export default async function PeoplePage({
                   <input
                     name="phone"
                     defaultValue={editingPerson.phone || ""}
+                    className="mt-1 w-full rounded-md border border-[var(--line)] bg-white px-2 py-2 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-medium text-[var(--muted)]">
+                  Cargo atual
+                  <select
+                    name="role_id"
+                    defaultValue={currentRoleDataByPerson.get(editingPerson.id)?.roleId || ""}
+                    className="mt-1 w-full rounded-md border border-[var(--line)] bg-white px-2 py-2 text-sm"
+                  >
+                    <option value="">Sem cargo</option>
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name} -{" "}
+                        {organizationNameById.get(role.organization_id) || "Organizacao"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs font-medium text-[var(--muted)]">
+                  Inicio do cargo
+                  <input
+                    name="start_date"
+                    type="date"
+                    defaultValue={currentRoleDataByPerson.get(editingPerson.id)?.startDate || ""}
+                    className="mt-1 w-full rounded-md border border-[var(--line)] bg-white px-2 py-2 text-sm"
+                  />
+                </label>
+                <label className="text-xs font-medium text-[var(--muted)]">
+                  Fim do cargo
+                  <input
+                    name="end_date"
+                    type="date"
+                    defaultValue={currentRoleDataByPerson.get(editingPerson.id)?.endDate || ""}
                     className="mt-1 w-full rounded-md border border-[var(--line)] bg-white px-2 py-2 text-sm"
                   />
                 </label>

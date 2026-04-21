@@ -518,6 +518,7 @@ Depois de validar este setup:
 1. atualizar as politicas RLS de cada tabela funcional para filtrar por `workspace_id`.
 2. tornar `workspace_id` `not null` nas tabelas principais.
 3. revisar relatorios/exportacoes para sempre respeitar o workspace ativo.
+4. aplicar `SUPABASE_WORKSPACE_INTEGRATIONS_SETUP.md` para configurar Google Calendar por workspace.
 
 ## Troubleshooting rapido
 

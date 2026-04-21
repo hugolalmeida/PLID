@@ -64,14 +64,14 @@ create policy "meetings_read_authenticated"
 on public.meetings
 for select
 to authenticated
-using (true);
+using (public.is_workspace_member(workspace_id));
 
 drop policy if exists "tasks_read_authenticated" on public.tasks;
 create policy "tasks_read_authenticated"
 on public.tasks
 for select
 to authenticated
-using (true);
+using (public.is_workspace_member(workspace_id));
 
 drop policy if exists "meetings_insert_non_visualizer" on public.meetings;
 create policy "meetings_insert_non_visualizer"
@@ -79,6 +79,8 @@ on public.meetings
 for insert
 to authenticated
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -92,6 +94,8 @@ on public.meetings
 for update
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -99,6 +103,8 @@ using (
   )
 )
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -112,6 +118,8 @@ on public.meetings
 for delete
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -125,6 +133,8 @@ on public.tasks
 for insert
 to authenticated
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -138,6 +148,8 @@ on public.tasks
 for update
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -145,6 +157,8 @@ using (
   )
 )
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -158,6 +172,8 @@ on public.tasks
 for delete
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -168,7 +184,7 @@ using (
 
 ## Teste rapido
 1. Acesse `/meetings` e crie uma reuniao.
-2. Ao criar, valide o redirecionamento para `/meetings/{id}/registro`.
+2. Ao criar, valide o retorno para lista de reunioes com mensagem de sucesso.
 3. No registro da reuniao, preencha pontos importantes e salve.
 4. Acesse `/tasks` e crie atividade vinculando pessoa, organizacao e reuniao.
 5. Confirme que usuario `visualizador` fica apenas em leitura.

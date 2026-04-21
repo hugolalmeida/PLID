@@ -25,7 +25,7 @@ create policy "organizations_read_authenticated"
 on public.organizations
 for select
 to authenticated
-using (true);
+using (public.is_workspace_member(workspace_id));
 
 drop policy if exists "organizations_insert_non_visualizer" on public.organizations;
 create policy "organizations_insert_non_visualizer"
@@ -33,6 +33,8 @@ on public.organizations
 for insert
 to authenticated
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1
     from public.profiles p
@@ -47,6 +49,8 @@ on public.organizations
 for update
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1
     from public.profiles p
@@ -55,6 +59,8 @@ using (
   )
 )
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1
     from public.profiles p
@@ -69,6 +75,8 @@ on public.organizations
 for delete
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1
     from public.profiles p

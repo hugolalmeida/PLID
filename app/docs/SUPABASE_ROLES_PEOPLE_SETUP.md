@@ -52,21 +52,21 @@ create policy "roles_read_authenticated"
 on public.roles
 for select
 to authenticated
-using (true);
+using (public.is_workspace_member(workspace_id));
 
 drop policy if exists "people_read_authenticated" on public.people;
 create policy "people_read_authenticated"
 on public.people
 for select
 to authenticated
-using (true);
+using (public.is_workspace_member(workspace_id));
 
 drop policy if exists "person_roles_read_authenticated" on public.person_roles;
 create policy "person_roles_read_authenticated"
 on public.person_roles
 for select
 to authenticated
-using (true);
+using (public.is_workspace_member(workspace_id));
 
 -- mutacao: somente nao-visualizador
 drop policy if exists "roles_insert_non_visualizer" on public.roles;
@@ -75,6 +75,8 @@ on public.roles
 for insert
 to authenticated
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid() and p.role <> 'visualizador'
@@ -87,12 +89,16 @@ on public.roles
 for update
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid() and p.role <> 'visualizador'
   )
 )
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid() and p.role <> 'visualizador'
@@ -105,6 +111,8 @@ on public.roles
 for delete
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid() and p.role <> 'visualizador'
@@ -117,6 +125,8 @@ on public.people
 for insert
 to authenticated
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid() and p.role <> 'visualizador'
@@ -129,12 +139,16 @@ on public.people
 for update
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid() and p.role <> 'visualizador'
   )
 )
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid() and p.role <> 'visualizador'
@@ -147,6 +161,8 @@ on public.people
 for delete
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid() and p.role <> 'visualizador'
@@ -159,6 +175,8 @@ on public.person_roles
 for insert
 to authenticated
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid() and p.role <> 'visualizador'
@@ -171,12 +189,16 @@ on public.person_roles
 for update
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid() and p.role <> 'visualizador'
   )
 )
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid() and p.role <> 'visualizador'
@@ -189,6 +211,8 @@ on public.person_roles
 for delete
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid() and p.role <> 'visualizador'

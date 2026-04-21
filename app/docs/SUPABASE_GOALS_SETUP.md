@@ -54,14 +54,14 @@ create policy "goals_read_authenticated"
 on public.goals
 for select
 to authenticated
-using (true);
+using (public.is_workspace_member(workspace_id));
 
 drop policy if exists "goal_updates_read_authenticated" on public.goal_updates;
 create policy "goal_updates_read_authenticated"
 on public.goal_updates
 for select
 to authenticated
-using (true);
+using (public.is_workspace_member(workspace_id));
 
 drop policy if exists "goals_insert_non_visualizer" on public.goals;
 create policy "goals_insert_non_visualizer"
@@ -69,6 +69,8 @@ on public.goals
 for insert
 to authenticated
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -82,6 +84,8 @@ on public.goals
 for update
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -89,6 +93,8 @@ using (
   )
 )
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -102,6 +108,8 @@ on public.goals
 for delete
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -115,6 +123,8 @@ on public.goal_updates
 for insert
 to authenticated
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -128,6 +138,8 @@ on public.goal_updates
 for update
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -135,6 +147,8 @@ using (
   )
 )
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -148,6 +162,8 @@ on public.goal_updates
 for delete
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -161,4 +177,3 @@ using (
 2. Acesse `/goals` e crie uma meta.
 3. Abra detalhe da meta e registre uma atualizacao.
 4. Com perfil `visualizador`, valide acesso somente leitura.
-

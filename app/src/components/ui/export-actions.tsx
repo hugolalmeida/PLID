@@ -1,18 +1,20 @@
 "use client";
 
 type ExportActionsProps = {
-  csvHref: string;
+  csvHref?: string;
 };
 
 export function ExportActions({ csvHref }: ExportActionsProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <a
-        href={csvHref}
-        className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm font-medium"
-      >
-        Exportar CSV
-      </a>
+      {csvHref ? (
+        <a
+          href={csvHref}
+          className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm font-medium"
+        >
+          Exportar CSV
+        </a>
+      ) : null}
       <button
         type="button"
         onClick={() => window.print()}
@@ -23,4 +25,3 @@ export function ExportActions({ csvHref }: ExportActionsProps) {
     </div>
   );
 }
-

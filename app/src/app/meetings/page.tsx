@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   createMeetingAction,
   deleteMeetingAction,
+  syncMeetingCalendarAction,
   updateMeetingAction,
 } from "./actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -23,6 +24,22 @@ type Meeting = {
   notes: string | null;
   minutes: string | null;
   status: "todo" | "in_progress" | "done";
+};
+
+type Organization = {
+  id: string;
+  name: string;
+};
+
+type MeetingOrganizationLink = {
+  meeting_id: string;
+  organization_id: string;
+};
+
+type MeetingCalendarEvent = {
+  meeting_id: string;
+  google_event_id: string;
+  synced_at: string;
 };
 
 type MeetingStatusFilter = "all" | Meeting["status"];
@@ -135,6 +152,62 @@ export default async function MeetingsPage({
   if (error) {
     throw new Error(error.message);
   }
+
+  const organizationsResult = await supabase
+    .from("organizations")
+    .select("id, name")
+    .eq("workspace_id", workspaceId)
+    .order("name", { ascending: true })
+    .returns<Organization[]>();
+
+  if (organizationsResult.error) {
+    throw new Error(organizationsResult.error.message);
+  }
+
+  const meetingOrganizationsResult = await supabase
+    .from("meeting_organizations")
+    .select("meeting_id, organization_id")
+    .eq("workspace_id", workspaceId)
+    .returns<MeetingOrganizationLink[]>();
+
+  const meetingOrganizationsSetupMissing =
+    meetingOrganizationsResult.error?.message
+      ?.toLowerCase()
+      .includes("meeting_organizations") || false;
+
+  if (meetingOrganizationsResult.error && !meetingOrganizationsSetupMissing) {
+    throw new Error(meetingOrganizationsResult.error.message);
+  }
+
+  const organizations = organizationsResult.data || [];
+  const meetingOrganizationLinks = meetingOrganizationsResult.data || [];
+  const orgNameById = new Map(organizations.map((organization) => [organization.id, organization.name]));
+  const organizationIdsByMeetingId = new Map<string, string[]>();
+
+  for (const link of meetingOrganizationLinks) {
+    const existing = organizationIdsByMeetingId.get(link.meeting_id) || [];
+    organizationIdsByMeetingId.set(link.meeting_id, [...existing, link.organization_id]);
+  }
+
+  const meetingCalendarEventsResult = await supabase
+    .from("meeting_calendar_events")
+    .select("meeting_id, google_event_id, synced_at")
+    .eq("workspace_id", workspaceId)
+    .returns<MeetingCalendarEvent[]>();
+
+  const calendarSetupMissing =
+    meetingCalendarEventsResult.error?.message
+      ?.toLowerCase()
+      .includes("meeting_calendar_events") || false;
+
+  if (meetingCalendarEventsResult.error && !calendarSetupMissing) {
+    throw new Error(meetingCalendarEventsResult.error.message);
+  }
+
+  const meetingCalendarEvents = meetingCalendarEventsResult.data || [];
+  const calendarByMeetingId = new Map(
+    meetingCalendarEvents.map((event) => [event.meeting_id, event]),
+  );
 
   const canManage = profile?.role !== "visualizador";
   const today = new Date();
@@ -297,11 +370,32 @@ export default async function MeetingsPage({
                     <option value="in_progress">Em andamento</option>
                     <option value="done">Concluida</option>
                   </select>
+                  <fieldset className="md:col-span-3 rounded-lg border border-[var(--line)] p-3">
+                    <legend className="px-1 text-xs font-medium text-[var(--muted)]">
+                      Organizacoes participantes (notificacao por e-mail)
+                    </legend>
+                    {meetingOrganizationsSetupMissing ? (
+                      <p className="text-xs text-amber-700">
+                        Rode o SQL de <code>SUPABASE_MEETING_ORGANIZATIONS_SETUP.md</code> para habilitar.
+                      </p>
+                    ) : organizations.length ? (
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {organizations.map((organization) => (
+                          <label key={organization.id} className="flex items-center gap-2 text-sm">
+                            <input type="checkbox" name="organization_ids" value={organization.id} />
+                            <span>{organization.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-[var(--muted)]">Nenhuma organizacao cadastrada.</p>
+                    )}
+                  </fieldset>
                   <button
                     type="submit"
                     className="md:col-span-3 w-full rounded-lg bg-[var(--accent)] px-4 py-2.5 text-sm font-semibold text-white md:w-auto"
                   >
-                    Criar e abrir registro
+                    Criar reuniao
                   </button>
                 </form>
               </div>
@@ -332,14 +426,17 @@ export default async function MeetingsPage({
                 <th className="px-4 py-3 text-left font-semibold">Titulo</th>
                 <th className="px-4 py-3 text-left font-semibold">Data</th>
                 <th className="px-4 py-3 text-left font-semibold">Status</th>
+                <th className="px-4 py-3 text-left font-semibold">Organizacoes</th>
                 <th className="px-4 py-3 text-left font-semibold">Notas</th>
                 <th className="px-4 py-3 text-left font-semibold">Documento</th>
+                <th className="px-4 py-3 text-left font-semibold">Calendario</th>
                 <th className="px-4 py-3 text-left font-semibold">Acoes</th>
               </tr>
             </thead>
             <tbody>
               {filteredMeetings.length ? (
                 filteredMeetings.map((meeting) => {
+                  const syncedEvent = calendarByMeetingId.get(meeting.id);
                   const openEditPath = buildMeetingsPath({
                     status: selectedStatus,
                     period: selectedPeriod,
@@ -361,14 +458,41 @@ export default async function MeetingsPage({
                         <span className="sr-only">{meetingStatusLabel(meeting.status)}</span>
                       </span>
                     </td>
+                    <td className="px-4 py-3">
+                      {meetingOrganizationsSetupMissing ? (
+                        <span className="text-xs text-amber-700">Setup pendente</span>
+                      ) : (
+                        <span className="text-xs">
+                          {(organizationIdsByMeetingId.get(meeting.id) || [])
+                            .map((organizationId) => orgNameById.get(organizationId) || "Org")
+                            .join(", ") || "-"}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">{meeting.notes || "-"}</td>
                     <td className="px-4 py-3">
                       <Link
                         href={`/meetings/${meeting.id}/registro`}
-                        className="rounded-md border border-[var(--line)] px-2 py-1.5 text-xs font-medium text-[var(--accent)]"
+                        className="inline-flex rounded-md border border-[var(--line)] p-1.5 text-[var(--accent)]"
+                        title="Abrir registro"
+                        aria-label={`Abrir registro da reuniao ${meeting.title}`}
                       >
-                        Abrir registro
+                        <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="currentColor">
+                          <path d="M4 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V8.414a1 1 0 00-.293-.707l-4.414-4.414A1 1 0 0011.586 3H4zm7 1.414L15.586 9H12a1 1 0 01-1-1V4.414zM7 11a1 1 0 011-1h4a1 1 0 110 2H8a1 1 0 01-1-1zm1 2a1 1 0 100 2h4a1 1 0 100-2H8z" />
+                        </svg>
                       </Link>
+                    </td>
+                    <td className="px-4 py-3">
+                      {calendarSetupMissing ? (
+                        <p className="text-xs text-amber-700">Setup pendente</p>
+                      ) : syncedEvent ? (
+                        <p className="text-xs text-emerald-700">
+                          Sincronizada em{" "}
+                          {new Date(syncedEvent.synced_at).toLocaleString("pt-BR")}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-[var(--muted)]">Nao sincronizada</p>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       {canManage ? (
@@ -383,6 +507,19 @@ export default async function MeetingsPage({
                               <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.95 8.95a1 1 0 01-.39.242l-3 1a1 1 0 01-1.265-1.265l1-3a1 1 0 01.242-.39l8.95-8.95zM12.172 5L5.223 11.95l-.55 1.65 1.65-.55L13.272 6.1 12.172 5z" />
                             </svg>
                           </Link>
+                          <form action={syncMeetingCalendarAction}>
+                            <input type="hidden" name="meeting_id" value={meeting.id} />
+                            <button
+                              type="submit"
+                              className="rounded-md border border-[var(--line)] p-1.5 text-xs font-medium"
+                              title="Re-sincronizar calendario"
+                              aria-label={`Re-sincronizar calendario da reuniao ${meeting.title}`}
+                            >
+                              <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="currentColor">
+                                <path d="M10 2a8 8 0 00-7.75 6H1a1 1 0 100 2h3a1 1 0 001-1V6a1 1 0 10-2 0v.93A6 6 0 1110 16a1 1 0 100 2 8 8 0 000-16z" />
+                              </svg>
+                            </button>
+                          </form>
                           <form action={deleteMeetingAction}>
                             <input type="hidden" name="id" value={meeting.id} />
                             <button
@@ -406,7 +543,7 @@ export default async function MeetingsPage({
                 })
               ) : (
                 <tr>
-                  <td className="px-4 py-6 muted-text" colSpan={6}>
+                  <td className="px-4 py-6 muted-text" colSpan={8}>
                     Nenhuma reuniao encontrada para os filtros selecionados.
                   </td>
                 </tr>
@@ -476,6 +613,37 @@ export default async function MeetingsPage({
                     className="mt-1 w-full rounded-md border border-[var(--line)] bg-white px-2 py-2 text-sm"
                   />
                 </label>
+                <fieldset className="md:col-span-2 rounded-lg border border-[var(--line)] p-3">
+                  <legend className="px-1 text-xs font-medium text-[var(--muted)]">
+                    Organizacoes participantes (notificacao ocorre na criacao)
+                  </legend>
+                  {meetingOrganizationsSetupMissing ? (
+                    <p className="text-xs text-amber-700">
+                      Rode o SQL de <code>SUPABASE_MEETING_ORGANIZATIONS_SETUP.md</code> para habilitar.
+                    </p>
+                  ) : organizations.length ? (
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {organizations.map((organization) => {
+                        const selected = (
+                          organizationIdsByMeetingId.get(editingMeeting.id) || []
+                        ).includes(organization.id);
+                        return (
+                          <label key={organization.id} className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              name="organization_ids"
+                              value={organization.id}
+                              defaultChecked={selected}
+                            />
+                            <span>{organization.name}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-[var(--muted)]">Nenhuma organizacao cadastrada.</p>
+                  )}
+                </fieldset>
                 <div className="modal-actions md:col-span-2">
                   <button
                     type="submit"

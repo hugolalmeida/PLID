@@ -22,6 +22,7 @@ cp .env.example .env.local
 3. Preencha:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` (necessario para job de notificacoes)
 
 4. Rode o projeto:
 
@@ -45,6 +46,8 @@ npm run dev
 
 ## Automacao de notificacoes
 - Endpoint de job: `/api/jobs/notifications`
+- Metodo: `POST`
+- Header obrigatorio: `Authorization: Bearer <CRON_SECRET>`
 - Cron de deploy configurado em `vercel.json` (a cada 6 horas)
 - Requer `CRON_SECRET` no ambiente do deploy
 

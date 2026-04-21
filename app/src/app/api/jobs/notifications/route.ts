@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
   runNotificationsSweep,
   sendQueuedNotifications,
@@ -12,18 +12,12 @@ function isAuthorized(request: NextRequest) {
   }
 
   const authHeader = request.headers.get("authorization")?.trim();
-  const bearerToken = authHeader?.toLowerCase().startsWith("bearer ")
-    ? authHeader.slice(7).trim()
-    : null;
-  const rawHeaderToken = authHeader && !bearerToken ? authHeader : null;
-  const customHeaderToken = request.headers.get("x-cron-secret")?.trim() || null;
-  const queryToken = request.nextUrl.searchParams.get("secret")?.trim() || null;
+  const bearerToken =
+    authHeader && authHeader.toLowerCase().startsWith("bearer ")
+      ? authHeader.slice(7).trim()
+      : null;
 
-  const matched =
-    bearerToken === secret ||
-    rawHeaderToken === secret ||
-    customHeaderToken === secret ||
-    queryToken === secret;
+  const matched = bearerToken === secret;
 
   return matched ? { ok: true as const } : { ok: false, reason: "invalid_secret" as const };
 }
@@ -45,7 +39,7 @@ async function handler(request: NextRequest) {
   }
 
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient();
     const sweep = await runNotificationsSweep(supabase);
     const dispatch = await sendQueuedNotifications(supabase);
 

@@ -1,4 +1,4 @@
-import { getGoogleAccessToken, requiredGoogleEnv } from "./oauth";
+import { getGoogleAccessToken } from "./oauth";
 
 type SyncTaskPayload = {
   title: string;
@@ -9,6 +9,13 @@ type SyncTaskPayload = {
   ownerEmail: string | null;
   organizationName: string;
   meetingTitle: string | null;
+};
+
+type SyncMeetingPayload = {
+  title: string;
+  notes: string | null;
+  date: string;
+  status: "todo" | "in_progress" | "done";
 };
 
 type ExistingCalendarEvent = {
@@ -45,11 +52,12 @@ function addDays(date: string, days: number) {
   return base.toISOString().slice(0, 10);
 }
 
-function buildEventBody(payload: SyncTaskPayload) {
+function buildEventBody(payload: SyncTaskPayload, timeZoneOverride?: string | null) {
   const time = normalizeTime(payload.dueTime);
   const { time: endTime, dayIncrement } = plusOneHour(time);
   const endDate = addDays(payload.dueDate, dayIncrement);
-  const timeZone = process.env.GOOGLE_CALENDAR_TIMEZONE || "America/Sao_Paulo";
+  const timeZone =
+    timeZoneOverride || process.env.GOOGLE_CALENDAR_TIMEZONE || "America/Sao_Paulo";
 
   const descriptionLines = [
     payload.description ? `Descricao: ${payload.description}` : "",
@@ -76,11 +84,17 @@ function buildEventBody(payload: SyncTaskPayload) {
 export async function syncTaskToGoogleCalendar(
   payload: SyncTaskPayload,
   existing: ExistingCalendarEvent,
+  integration: { calendarId: string; timeZone?: string | null },
 ) {
   const accessToken = await getGoogleAccessToken();
-  const calendarId = existing?.calendarId || requiredGoogleEnv("GOOGLE_CALENDAR_ID");
+  const calendarId = existing?.calendarId || integration.calendarId;
+  if (!calendarId) {
+    throw new Error(
+      "Calendar ID nao configurado para este workspace. Defina em Workspaces > Integracao Google Calendar.",
+    );
+  }
   const encodedCalendarId = encodeURIComponent(calendarId);
-  const body = buildEventBody(payload);
+  const body = buildEventBody(payload, integration.timeZone);
 
   const url = existing
     ? `https://www.googleapis.com/calendar/v3/calendars/${encodedCalendarId}/events/${existing.googleEventId}?sendUpdates=all`
@@ -110,4 +124,90 @@ export async function syncTaskToGoogleCalendar(
     googleEventId: event.id,
     calendarId,
   };
+}
+
+function buildMeetingEventBody(payload: SyncMeetingPayload, timeZoneOverride?: string | null) {
+  const descriptionLines = [
+    payload.notes ? `Notas: ${payload.notes}` : "",
+    `Status: ${payload.status === "todo" ? "A fazer" : payload.status === "in_progress" ? "Em andamento" : "Concluida"}`,
+    "Origem: PLID (Reunioes)",
+  ].filter(Boolean);
+
+  return {
+    summary: payload.title,
+    description: descriptionLines.join("\n"),
+    start: { date: payload.date, timeZone: timeZoneOverride || "America/Sao_Paulo" },
+    end: { date: addDays(payload.date, 1), timeZone: timeZoneOverride || "America/Sao_Paulo" },
+  };
+}
+
+export async function syncMeetingToGoogleCalendar(
+  payload: SyncMeetingPayload,
+  existing: ExistingCalendarEvent,
+  integration: { calendarId: string; timeZone?: string | null },
+) {
+  const accessToken = await getGoogleAccessToken();
+  const calendarId = existing?.calendarId || integration.calendarId;
+  if (!calendarId) {
+    throw new Error(
+      "Calendar ID nao configurado para este workspace. Defina em Workspaces > Integracao Google Calendar.",
+    );
+  }
+  const encodedCalendarId = encodeURIComponent(calendarId);
+  const body = buildMeetingEventBody(payload, integration.timeZone);
+
+  const url = existing
+    ? `https://www.googleapis.com/calendar/v3/calendars/${encodedCalendarId}/events/${existing.googleEventId}?sendUpdates=all`
+    : `https://www.googleapis.com/calendar/v3/calendars/${encodedCalendarId}/events?sendUpdates=all`;
+
+  const response = await fetch(url, {
+    method: existing ? "PATCH" : "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Google Calendar sync error: ${text}`);
+  }
+
+  const event = (await response.json()) as { id?: string };
+  if (!event.id) {
+    throw new Error("Google Calendar response missing event id.");
+  }
+
+  return {
+    googleEventId: event.id,
+    calendarId,
+  };
+}
+
+export async function deleteGoogleCalendarEvent(input: {
+  calendarId: string;
+  googleEventId: string;
+}) {
+  const accessToken = await getGoogleAccessToken();
+  const encodedCalendarId = encodeURIComponent(input.calendarId);
+  const encodedEventId = encodeURIComponent(input.googleEventId);
+  const url = `https://www.googleapis.com/calendar/v3/calendars/${encodedCalendarId}/events/${encodedEventId}?sendUpdates=all`;
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
+  });
+
+  if (response.status === 404) {
+    return;
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Google Calendar delete error: ${text}`);
+  }
 }

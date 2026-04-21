@@ -28,7 +28,7 @@ create policy "calendar_events_read_authenticated"
 on public.calendar_events
 for select
 to authenticated
-using (true);
+using (public.is_workspace_member(workspace_id));
 
 drop policy if exists "calendar_events_insert_non_visualizer" on public.calendar_events;
 create policy "calendar_events_insert_non_visualizer"
@@ -36,6 +36,8 @@ on public.calendar_events
 for insert
 to authenticated
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -49,6 +51,8 @@ on public.calendar_events
 for update
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -56,6 +60,8 @@ using (
   )
 )
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -69,6 +75,8 @@ on public.calendar_events
 for delete
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1 from public.profiles p
     where p.id = auth.uid()
@@ -83,8 +91,9 @@ using (
    - `GOOGLE_OAUTH_CLIENT_ID`
    - `GOOGLE_OAUTH_CLIENT_SECRET`
    - `GOOGLE_OAUTH_REFRESH_TOKEN`
-   - `GOOGLE_CALENDAR_ID` (ex.: `primary`)
    - `GOOGLE_CALENDAR_TIMEZONE` (ex.: `America/Sao_Paulo`)
-3. Abra `/tasks` e crie/edite uma atividade: o sistema tenta sincronizar automaticamente.
-4. Verifique em `calendar_events` se `google_event_id` e `synced_at` foram preenchidos.
-5. Se necessario, use o botao `Sincronizar` como reprocessamento manual.
+3. Rode tambem o SQL de `SUPABASE_WORKSPACE_INTEGRATIONS_SETUP.md`.
+4. Em `/workspaces`, configure o `Google Calendar ID` no workspace ativo.
+5. Abra `/tasks` e crie/edite uma atividade: o sistema tenta sincronizar automaticamente.
+6. Verifique em `calendar_events` se `google_event_id` e `synced_at` foram preenchidos.
+7. Se necessario, use o botao `Sincronizar` como reprocessamento manual.

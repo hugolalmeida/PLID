@@ -19,7 +19,7 @@ create policy "audit_logs_read_authenticated"
 on public.audit_logs
 for select
 to authenticated
-using (true);
+using (public.is_workspace_member(workspace_id));
 
 drop policy if exists "audit_logs_insert_non_visualizer" on public.audit_logs;
 create policy "audit_logs_insert_non_visualizer"
@@ -27,6 +27,8 @@ on public.audit_logs
 for insert
 to authenticated
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1
     from public.profiles p
@@ -34,4 +36,3 @@ with check (
       and p.role <> 'visualizador'
   )
 );
-

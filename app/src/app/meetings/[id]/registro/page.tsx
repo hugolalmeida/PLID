@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createMeetingTaskFromRecordAction, updateMeetingRecordAction } from "./actions";
 import { readCreateFeedback, type PageSearchParams } from "@/lib/ui/action-feedback";
 import { CreateFeedbackBanner } from "@/components/ui/create-feedback-banner";
+import { ExportActions } from "@/components/ui/export-actions";
 import { type UserRole } from "@/lib/auth/roles";
 import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
 
@@ -135,12 +136,15 @@ export default async function MeetingRecordPage({
               Data: {formatDateBr(meeting.date)} {meeting.notes ? `| Notas: ${meeting.notes}` : ""}
             </p>
           </div>
-          <Link
-            href="/meetings"
-            className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm font-medium"
-          >
-            Voltar para reunioes
-          </Link>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <ExportActions />
+            <Link
+              href="/meetings"
+              className="rounded-lg border border-[var(--line)] bg-white px-3 py-2 text-sm font-medium"
+            >
+              Voltar para reunioes
+            </Link>
+          </div>
         </div>
 
         <CreateFeedbackBanner

@@ -2,6 +2,8 @@
 
 Cria a estrutura de logs para notificacoes de tarefas e habilita envio manual de e-mail pela tela `/notifications`.
 
+Importante: este setup assume que o SQL de `SUPABASE_WORKSPACES_SETUP.md` ja foi aplicado (coluna `workspace_id` + funcoes de workspace).
+
 ```sql
 create table if not exists public.notifications_log (
   id uuid primary key default gen_random_uuid(),
@@ -32,7 +34,7 @@ create policy "notifications_read_authenticated"
 on public.notifications_log
 for select
 to authenticated
-using (true);
+using (public.is_workspace_member(workspace_id));
 
 drop policy if exists "notifications_insert_non_visualizer" on public.notifications_log;
 create policy "notifications_insert_non_visualizer"
@@ -40,6 +42,8 @@ on public.notifications_log
 for insert
 to authenticated
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1
     from public.profiles p
@@ -54,6 +58,8 @@ on public.notifications_log
 for update
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1
     from public.profiles p
@@ -62,6 +68,8 @@ using (
   )
 )
 with check (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1
     from public.profiles p
@@ -76,6 +84,8 @@ on public.notifications_log
 for delete
 to authenticated
 using (
+  public.can_manage_workspace(workspace_id)
+  and
   exists (
     select 1
     from public.profiles p
@@ -115,8 +125,8 @@ Ao gerar o refresh token, inclua:
 - `https://www.googleapis.com/auth/gmail.send`
 
 ## Endpoint de automacao (cron/job)
-- Rota: `GET/POST /api/jobs/notifications`
-- Autorizacao: `Authorization: Bearer <CRON_SECRET>` ou `?secret=<CRON_SECRET>`
+- Rota: `POST /api/jobs/notifications`
+- Autorizacao: `Authorization: Bearer <CRON_SECRET>`
 - Execucao: gera fila + envia pendentes em uma unica chamada.
 
 ## Cron no deploy (Vercel)

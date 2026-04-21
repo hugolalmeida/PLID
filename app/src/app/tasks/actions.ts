@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { syncTaskToGoogleCalendar } from "@/lib/google/calendar";
 import { logAuditEvent } from "@/lib/audit/log-event";
 import { getCurrentWorkspaceId } from "@/lib/workspaces/current";
+import { getWorkspaceCalendarIntegration } from "@/lib/workspaces/integrations";
 
 function readValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -16,8 +17,7 @@ function canAutoSyncCalendar() {
   return (
     Boolean(process.env.GOOGLE_OAUTH_CLIENT_ID) &&
     Boolean(process.env.GOOGLE_OAUTH_CLIENT_SECRET) &&
-    Boolean(process.env.GOOGLE_OAUTH_REFRESH_TOKEN) &&
-    Boolean(process.env.GOOGLE_CALENDAR_ID)
+    Boolean(process.env.GOOGLE_OAUTH_REFRESH_TOKEN)
   );
 }
 
@@ -36,6 +36,7 @@ async function syncTaskCalendarInternal(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   taskId: string,
   workspaceId: string,
+  integration: { calendarId: string; timeZone: string | null },
 ) {
   const { data: task, error: taskError } = await supabase
     .from("tasks")
@@ -113,6 +114,10 @@ async function syncTaskCalendarInternal(
           calendarId: existingResult.data.calendar_id,
         }
       : null,
+    {
+      calendarId: integration.calendarId,
+      timeZone: integration.timeZone,
+    },
   );
 
   const { error: upsertError } = await supabase.from("calendar_events").upsert(
@@ -139,9 +144,16 @@ async function tryAutoSyncTaskCalendar(
   if (!canAutoSyncCalendar()) {
     return;
   }
+  const integration = await getWorkspaceCalendarIntegration(supabase, workspaceId);
+  if (!integration.enabled || !integration.calendarId) {
+    return;
+  }
 
   try {
-    await syncTaskCalendarInternal(supabase, taskId, workspaceId);
+    await syncTaskCalendarInternal(supabase, taskId, workspaceId, {
+      calendarId: integration.calendarId,
+      timeZone: integration.timeZone,
+    });
   } catch (error) {
     // Nao bloqueia create/update da tarefa quando Google falhar.
     console.error("[tasks:auto-sync] failed", error);
@@ -342,8 +354,30 @@ export async function syncTaskCalendarAction(formData: FormData) {
   if (!workspaceId) {
     throw new Error("Workspace ativo nao encontrado.");
   }
+  if (!canAutoSyncCalendar()) {
+    redirect(
+      "/tasks?create=error&message=Credenciais%20Google%20incompletas%20no%20servidor.%20Verifique%20o%20.env.local.",
+    );
+  }
+  const integration = await getWorkspaceCalendarIntegration(supabase, workspaceId);
+  if (!integration.enabled) {
+    redirect(
+      `/tasks?create=error&message=${encodeURIComponent(
+        integration.setupMessage ||
+          "Integracao por workspace ainda nao configurada. Rode o SQL de setup.",
+      )}`,
+    );
+  }
+  if (!integration.calendarId) {
+    redirect(
+      "/tasks?create=error&message=Calendar%20ID%20nao%20configurado%20para%20este%20workspace.%20Acesse%20Workspaces%20e%20preencha%20a%20integracao.",
+    );
+  }
 
-  await syncTaskCalendarInternal(supabase, taskId, workspaceId);
+  await syncTaskCalendarInternal(supabase, taskId, workspaceId, {
+    calendarId: integration.calendarId,
+    timeZone: integration.timeZone,
+  });
   await logAuditEvent(supabase, {
     entityType: "task",
     entityId: taskId,

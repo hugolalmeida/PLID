@@ -7,6 +7,7 @@ import {
   removeWorkspaceMemberAction,
   switchWorkspaceAction,
   transferWorkspaceOwnershipAction,
+  updateWorkspaceCalendarIntegrationAction,
   updateWorkspaceMemberRoleAction,
   updateWorkspaceAction,
 } from "./actions";
@@ -27,6 +28,11 @@ type MemberProfileRow = {
   role: WorkspaceRole;
   full_name: string | null;
   email: string | null;
+};
+
+type WorkspaceIntegrationRow = {
+  google_calendar_id: string | null;
+  google_calendar_timezone: string | null;
 };
 
 export default async function WorkspacesPage({
@@ -69,6 +75,26 @@ export default async function WorkspacesPage({
   }
 
   const members = (membersResult.data || []) as MemberProfileRow[];
+
+  const integrationResult =
+    context.enabled && context.currentWorkspaceId
+      ? await supabase
+          .from("workspace_integrations")
+          .select("google_calendar_id, google_calendar_timezone")
+          .eq("workspace_id", context.currentWorkspaceId)
+          .maybeSingle<WorkspaceIntegrationRow>()
+      : { data: null as WorkspaceIntegrationRow | null, error: null };
+
+  const integrationErrorMessage = integrationResult.error?.message || "";
+  const integrationSetupMissing =
+    integrationErrorMessage.toLowerCase().includes("workspace_integrations") ||
+    integrationErrorMessage.toLowerCase().includes("does not exist");
+
+  if (integrationResult.error && !integrationSetupMissing) {
+    throw new Error(integrationResult.error.message);
+  }
+
+  const integration = integrationResult.data;
 
   return (
     <main className="mx-auto w-full max-w-6xl p-6 md:p-10">
@@ -434,6 +460,58 @@ export default async function WorkspacesPage({
                     </tbody>
                   </table>
                 </div>
+              </section>
+            ) : null}
+
+            {context.currentWorkspaceId ? (
+              <section className="mt-6 rounded-xl border border-[var(--line)] bg-white p-4">
+                <h2 className="text-base font-semibold">Integracao Google Calendar (workspace ativo)</h2>
+                <p className="muted-text mt-1 text-sm">
+                  Defina o calendar ID para sincronizacao de atividades. Sem calendar ID, a atividade fica apenas no sistema.
+                </p>
+                {integrationSetupMissing ? (
+                  <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                    Tabela <code>workspace_integrations</code> nao encontrada. Rode o SQL de{" "}
+                    <code>app/docs/SUPABASE_WORKSPACE_INTEGRATIONS_SETUP.md</code>.
+                  </div>
+                ) : canManageMembers ? (
+                  <form action={updateWorkspaceCalendarIntegrationAction} className="mt-4 grid gap-3 md:grid-cols-3">
+                    <input type="hidden" name="workspace_id" value={context.currentWorkspaceId} />
+                    <label className="text-xs font-medium text-[var(--muted)] md:col-span-2">
+                      Google Calendar ID
+                      <input
+                        name="google_calendar_id"
+                        defaultValue={integration?.google_calendar_id || ""}
+                        placeholder="ex.: primary ou abc123@group.calendar.google.com"
+                        className="mt-1 w-full rounded-md border border-[var(--line)] bg-white px-2.5 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="text-xs font-medium text-[var(--muted)]">
+                      Timezone
+                      <input
+                        name="google_calendar_timezone"
+                        defaultValue={integration?.google_calendar_timezone || "America/Sao_Paulo"}
+                        placeholder="America/Sao_Paulo"
+                        className="mt-1 w-full rounded-md border border-[var(--line)] bg-white px-2.5 py-2 text-sm"
+                      />
+                    </label>
+                    <div className="md:col-span-3 flex items-center gap-2">
+                      <button
+                        type="submit"
+                        className="rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm font-medium"
+                      >
+                        Salvar integracao
+                      </button>
+                      <p className="muted-text text-xs">
+                        Deixe vazio para desativar a sincronizacao de calendario neste workspace.
+                      </p>
+                    </div>
+                  </form>
+                ) : (
+                  <p className="muted-text mt-4 text-sm">
+                    Somente owner/admin podem editar a integracao.
+                  </p>
+                )}
               </section>
             ) : null}
 

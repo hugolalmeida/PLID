@@ -103,6 +103,9 @@ export async function updatePersonAction(formData: FormData) {
   const email = readValue(formData, "email");
   const phone = readValue(formData, "phone");
   const active = readBoolean(formData, "active");
+  const roleId = readValue(formData, "role_id");
+  const startDate = readValue(formData, "start_date");
+  const endDate = readValue(formData, "end_date");
   const returnPath = readValue(formData, "return_path");
 
   if (!id || !name) {
@@ -131,6 +134,67 @@ export async function updatePersonAction(formData: FormData) {
     throw new Error(error.message);
   }
 
+  const existingLinks = await supabase
+    .from("person_roles")
+    .select("id, role_id, start_date, end_date")
+    .eq("person_id", id)
+    .eq("workspace_id", workspaceId)
+    .order("created_at", { ascending: false })
+    .returns<
+      Array<{
+        id: string;
+        role_id: string;
+        start_date: string | null;
+        end_date: string | null;
+      }>
+    >();
+
+  if (existingLinks.error) {
+    throw new Error(existingLinks.error.message);
+  }
+
+  const latest = (existingLinks.data || [])[0] || null;
+
+  if (roleId) {
+    if (latest) {
+      const { error: updateLinkError } = await supabase
+        .from("person_roles")
+        .update({
+          role_id: roleId,
+          start_date: startDate || null,
+          end_date: endDate || null,
+        })
+        .eq("id", latest.id)
+        .eq("workspace_id", workspaceId);
+
+      if (updateLinkError) {
+        throw new Error(updateLinkError.message);
+      }
+    } else {
+      const { error: insertLinkError } = await supabase.from("person_roles").insert({
+        workspace_id: workspaceId,
+        person_id: id,
+        role_id: roleId,
+        start_date: startDate || null,
+        end_date: endDate || null,
+      });
+
+      if (insertLinkError) {
+        throw new Error(insertLinkError.message);
+      }
+    }
+  } else if (latest) {
+    const { error: clearRoleError } = await supabase
+      .from("person_roles")
+      .delete()
+      .eq("id", latest.id)
+      .eq("workspace_id", workspaceId);
+
+    if (clearRoleError) {
+      throw new Error(clearRoleError.message);
+    }
+  }
+
   await logAuditEvent(supabase, {
     entityType: "person",
     entityId: id,
@@ -140,6 +204,9 @@ export async function updatePersonAction(formData: FormData) {
       email: email || null,
       phone: phone || null,
       active,
+      roleId: roleId || null,
+      startDate: startDate || null,
+      endDate: endDate || null,
     },
   });
 
