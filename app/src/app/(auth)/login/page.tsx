@@ -21,9 +21,9 @@ export default async function LoginPage() {
             <Image
               src="/plid_mark.png"
               alt="PLID"
-              width={84}
-              height={84}
-              className="h-16 w-16 object-contain md:h-20 md:w-20"
+              width={104}
+              height={104}
+              className="h-20 w-20 object-contain md:h-24 md:w-24"
               priority
             />
             <div>

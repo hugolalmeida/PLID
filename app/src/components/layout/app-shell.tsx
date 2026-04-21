@@ -298,9 +298,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Image
                 src="/plid_mark.png"
                 alt="PLID"
-                width={48}
-                height={48}
-                className="h-12 w-12 object-contain"
+                width={58}
+                height={58}
+                className="h-14 w-14 object-contain"
                 priority
               />
               <div>
@@ -358,9 +358,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <Image
                 src="/plid_mark.png"
                 alt="PLID"
-                width={120}
-                height={40}
-                className="h-7 w-auto object-contain"
+                width={140}
+                height={48}
+                className="h-8 w-auto object-contain"
                 priority
               />
             </Link>

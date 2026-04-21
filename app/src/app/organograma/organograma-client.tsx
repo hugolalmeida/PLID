@@ -240,8 +240,8 @@ function OverviewTreeNode({
   const orgRoles = rolesByOrg.get(organization.id) || [];
 
   return (
-    <div className={`relative flex items-center ${isCompact ? "gap-2.5 md:gap-3" : "gap-3 md:gap-4"}`}>
-      <div className={`${isCompact ? "w-[210px] md:w-[224px]" : "w-[240px] md:w-[260px]"} shrink-0`}>
+    <div className={`relative flex items-center ${isCompact ? "gap-2 sm:gap-2.5 md:gap-3" : "gap-2.5 sm:gap-3 md:gap-4"}`}>
+      <div className={`${isCompact ? "w-[170px] sm:w-[210px] md:w-[224px]" : "w-[195px] sm:w-[240px] md:w-[260px]"} shrink-0`}>
         <button
           type="button"
           onClick={() => onSelect({ kind: "organization", id: organization.id })}
@@ -681,14 +681,14 @@ export function OrganogramaClient({
   return (
     <section className="mt-6">
       <article className="rounded-xl border border-[var(--line)] bg-white p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div>
             <h2 className="text-base font-semibold">Estrutura interativa</h2>
             <p className="muted-text mt-1 text-sm">
               Modo geral para visao completa e modo detalhado para navegacao por clique.
             </p>
           </div>
-          <div className="rounded-lg border border-[var(--line)] bg-[#f8f4ee] p-1 text-xs">
+          <div className="rounded-lg border border-[var(--line)] bg-[#f8f4ee] p-1 text-[11px] sm:text-xs">
             <button
               type="button"
               onClick={() => setViewMode("overview")}
@@ -713,7 +713,7 @@ export function OrganogramaClient({
             </button>
           </div>
           {viewMode === "overview" ? (
-            <div className="rounded-lg border border-[var(--line)] bg-[#f8f4ee] p-1 text-xs">
+            <div className="rounded-lg border border-[var(--line)] bg-[#f8f4ee] p-1 text-[11px] sm:text-xs">
               <button
                 type="button"
                 onClick={() => setOverviewDensity("compact")}
@@ -825,7 +825,7 @@ export function OrganogramaClient({
 
         {viewMode === "overview" ? (
           <div
-            className="mx-auto mt-4 max-w-[1280px] rounded-xl border border-[var(--line)] bg-[#dff2f1] p-3 md:p-4"
+            className="mx-auto mt-4 w-full max-w-[1280px] rounded-xl border border-[var(--line)] bg-[#dff2f1] p-2 sm:p-3 md:p-4"
             style={
               fitToScreen
                 ? { transform: `scale(${fitScale})`, transformOrigin: "top center" }
@@ -844,7 +844,9 @@ export function OrganogramaClient({
             >
               <div
                 className={`mx-auto space-y-4 ${
-                  overviewDensity === "compact" ? "min-w-[700px]" : "min-w-[820px]"
+                  overviewDensity === "compact"
+                    ? "min-w-[340px] sm:min-w-[700px]"
+                    : "min-w-[420px] sm:min-w-[820px]"
                 }`}
               >
                 {rootOrganizationsForView

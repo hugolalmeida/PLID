@@ -18,15 +18,15 @@ export default async function HomePage() {
 
   if (!user) {
     return (
-      <main className="mx-auto w-full max-w-5xl p-4 sm:p-6 md:p-10">
+      <main className="mx-auto w-full max-w-6xl p-4 sm:p-6 md:p-10">
         <section className="surface-card p-6 md:p-10">
           <div className="flex flex-col items-center gap-6 text-center md:flex-row md:items-center md:justify-center md:gap-8 md:text-left">
             <Image
               src="/plid_mark.png"
               alt="PLID"
-              width={140}
-              height={140}
-              className="h-24 w-24 object-contain md:h-32 md:w-32"
+              width={176}
+              height={176}
+              className="h-28 w-28 object-contain md:h-36 md:w-36"
               priority
             />
             <div>
@@ -37,17 +37,134 @@ export default async function HomePage() {
                 Plataforma de Lideranca
               </h1>
               <p className="muted-text mt-3 max-w-2xl text-sm md:text-base">
-                Organize workspaces, equipes, metas, reunioes e atividades em um unico painel.
+                Uma plataforma para organizar lideranca com visao executiva, processos claros
+                e acompanhamento continuo por equipe, reuniao e meta.
               </p>
             </div>
           </div>
-          <div className="mt-6 flex flex-wrap gap-3">
+
+          <section className="mt-8 grid gap-3 md:grid-cols-3">
+            <article className="rounded-xl border border-[var(--line)] bg-white p-4">
+              <h2 className="text-sm font-semibold">Estrutura organizacional</h2>
+              <p className="muted-text mt-1 text-sm">
+                Monte organogramas por niveis e relacione pessoas, cargos e organizacoes.
+              </p>
+            </article>
+            <article className="rounded-xl border border-[var(--line)] bg-white p-4">
+              <h2 className="text-sm font-semibold">Execucao e governanca</h2>
+              <p className="muted-text mt-1 text-sm">
+                Controle atividades, reunioes, metas e registros com rastreabilidade.
+              </p>
+            </article>
+            <article className="rounded-xl border border-[var(--line)] bg-white p-4">
+              <h2 className="text-sm font-semibold">Multi-workspace</h2>
+              <p className="muted-text mt-1 text-sm">
+                Separe contextos (ex.: Igreja e Trabalho) com permissoes por papel.
+              </p>
+            </article>
+          </section>
+
+          <section className="mt-4 rounded-xl border border-[var(--line)] bg-white p-4">
+            <h2 className="text-sm font-semibold">Funcionalidades principais</h2>
+            <ul className="muted-text mt-2 grid list-disc gap-1 pl-5 text-sm md:grid-cols-2">
+              <li>Dashboard executivo por workspace</li>
+              <li>Organograma interativo com visao geral e detalhada</li>
+              <li>Atividades com status, prazo e sincronizacao</li>
+              <li>Reunioes com registro e participantes por organizacao</li>
+              <li>Metas com historico de atualizacoes</li>
+              <li>Auditoria de alteracoes e notificacoes automáticas</li>
+            </ul>
+          </section>
+
+          <section className="mt-4 rounded-xl border border-[var(--line)] bg-white p-4">
+            <h2 className="text-sm font-semibold">Como funciona em 3 passos</h2>
+            <div className="mt-3 grid gap-3 md:grid-cols-3">
+              <article className="rounded-lg border border-[var(--line)] bg-[#fdf9f2] p-3">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] bg-white text-[var(--accent)]">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 12h18" />
+                    <path d="M12 3v18" />
+                  </svg>
+                </span>
+                <p className="text-xs font-semibold tracking-[0.08em] text-[var(--accent)] uppercase">
+                  Passo 1
+                </p>
+                <h3 className="mt-1 text-sm font-semibold">Estruture seu workspace</h3>
+                <p className="muted-text mt-1 text-sm">
+                  Cadastre organizacoes, cargos e pessoas para montar a base de lideranca.
+                </p>
+              </article>
+              <article className="rounded-lg border border-[var(--line)] bg-[#fdf9f2] p-3">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] bg-white text-[var(--accent)]">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 6h18" />
+                    <path d="M3 12h18" />
+                    <path d="M3 18h18" />
+                  </svg>
+                </span>
+                <p className="text-xs font-semibold tracking-[0.08em] text-[var(--accent)] uppercase">
+                  Passo 2
+                </p>
+                <h3 className="mt-1 text-sm font-semibold">Planeje e execute</h3>
+                <p className="muted-text mt-1 text-sm">
+                  Crie reunioes, atividades e metas com acompanhamento de status e prazos.
+                </p>
+              </article>
+              <article className="rounded-lg border border-[var(--line)] bg-[#fdf9f2] p-3">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--line)] bg-white text-[var(--accent)]">
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 19h16" />
+                    <path d="M7 15l3-3 2 2 5-5" />
+                  </svg>
+                </span>
+                <p className="text-xs font-semibold tracking-[0.08em] text-[var(--accent)] uppercase">
+                  Passo 3
+                </p>
+                <h3 className="mt-1 text-sm font-semibold">Acompanhe resultados</h3>
+                <p className="muted-text mt-1 text-sm">
+                  Use dashboard, auditoria e notificacoes para manter governanca e ritmo.
+                </p>
+              </article>
+            </div>
+          </section>
+
+          <div className="mt-6 flex flex-wrap items-center gap-3">
             <Link
               href="/login"
               className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white"
             >
-              Entrar
+              Acessar plataforma
             </Link>
+            <span className="text-xs text-[var(--muted)]">
+              Entre para gerenciar seus workspaces e modulos.
+            </span>
           </div>
         </section>
       </main>
