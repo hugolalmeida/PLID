@@ -4,6 +4,7 @@ import { updateSession } from "@/lib/supabase/middleware";
 const protectedRoutes = [
   "/dashboard",
   "/organograma",
+  "/convites-discurso",
   "/tasks",
   "/meetings",
   "/goals",
@@ -44,6 +45,7 @@ export const config = {
   matcher: [
     "/dashboard/:path*",
     "/organograma/:path*",
+    "/convites-discurso/:path*",
     "/tasks/:path*",
     "/meetings/:path*",
     "/goals/:path*",

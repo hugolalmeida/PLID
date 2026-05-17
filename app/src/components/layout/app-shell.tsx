@@ -38,19 +38,20 @@ type ProfileContextApiResponse = {
 
 const primaryItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/organograma", label: "Organograma" },
+  { href: "/convites-discurso", label: "Convites para discurso" },
 ];
 
 const operationItems: NavItem[] = [
-  { href: "/organograma", label: "Organograma" },
   { href: "/tasks", label: "Atividades" },
-  { href: "/meetings", label: "Reunioes" },
+  { href: "/meetings", label: "Reuniões" },
   { href: "/goals", label: "Metas" },
-  { href: "/notifications", label: "Notificacoes" },
+  { href: "/notifications", label: "Notificações" },
   { href: "/auditoria", label: "Auditoria" },
 ];
 
 const setupItems: NavItem[] = [
-  { href: "/organizations", label: "Organizacoes" },
+  { href: "/organizations", label: "Organizações" },
   { href: "/roles", label: "Cargos" },
   { href: "/people", label: "Pessoas" },
 ];
@@ -169,7 +170,7 @@ function WorkspaceQuickSwitch({ compact = false }: { compact?: boolean }) {
           href="/workspaces"
           className="mt-2 inline-block text-xs font-medium text-[var(--accent)] hover:underline"
         >
-          Gerenciar espacos
+          Gerenciar espaços
         </Link>
       ) : null}
     </div>
@@ -185,7 +186,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [setupMenuOpen, setSetupMenuOpen] = useState(() =>
     setupItems.some((item) => isActivePath(pathname || "", item.href)),
   );
-  const [viewerName, setViewerName] = useState("Usuario");
+  const [viewerName, setViewerName] = useState("Usuário");
 
   useEffect(() => {
     let active = true;
@@ -201,7 +202,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         if (!active || !payload.ok || !payload.profile) return;
 
         const nextName =
-          payload.profile.full_name || payload.profile.email || "Usuario";
+          payload.profile.full_name || payload.profile.email || "Usuário";
         setViewerName(nextName);
       } catch {
         // noop
@@ -246,7 +247,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs font-semibold tracking-[0.14em] text-[var(--muted)] uppercase transition hover:bg-[#efe9de]"
           aria-expanded={operationMenuOpen}
         >
-          <span>Operacao</span>
+          <span>Operação</span>
           <span className="text-sm leading-none">{operationMenuOpen ? "-" : "+"}</span>
         </button>
         {operationMenuOpen ? (
@@ -270,7 +271,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           className="flex w-full items-center justify-between rounded-lg px-3 py-1.5 text-left text-xs font-semibold tracking-[0.14em] text-[var(--muted)] uppercase transition hover:bg-[#efe9de]"
           aria-expanded={setupMenuOpen}
         >
-          <span>Configuracao Inicial</span>
+          <span>Configuração Inicial</span>
           <span className="text-sm leading-none">{setupMenuOpen ? "-" : "+"}</span>
         </button>
         {setupMenuOpen ? (
@@ -307,7 +308,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <p className="text-xs font-semibold tracking-[0.14em] text-[var(--accent)] uppercase">
                   PLID
                 </p>
-                <p className="mt-1 text-sm font-semibold">Painel de Lideranca</p>
+                <p className="mt-1 text-sm font-semibold">Painel de Liderança</p>
               </div>
             </div>
           </Link>

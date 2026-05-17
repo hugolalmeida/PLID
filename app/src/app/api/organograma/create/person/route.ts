@@ -78,5 +78,5 @@ export async function POST(request: Request) {
 
   revalidatePath("/organograma");
   revalidatePath("/people");
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, person: { id: createdPerson.id } });
 }

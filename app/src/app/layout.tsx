@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PLID | Plataforma de Lideranca da Igreja",
+  title: "PLID | Plataforma de Liderança da Igreja",
   description:
-    "MVP para organograma, atividades, reunioes e acompanhamento da lideranca.",
+    "MVP para organograma, atividades, reuniões e acompanhamento da liderança.",
   icons: {
     icon: [
       { url: "/favicon.ico", type: "image/x-icon" },

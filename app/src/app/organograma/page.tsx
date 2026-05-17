@@ -71,13 +71,13 @@ export default async function OrganogramaPage() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold tracking-[0.14em] text-[var(--accent)] uppercase">
-              Modulo 5
+              Módulo 5
             </p>
             <h1 className="mt-2 text-2xl font-semibold md:text-3xl">
               Organograma Interativo
             </h1>
             <p className="muted-text mt-2 text-sm">
-              Visualizacao da estrutura com organizacoes, cargos e vinculos.
+              Visualização da estrutura com organizações, cargos e vínculos.
             </p>
           </div>
           <Link

@@ -59,6 +59,32 @@ npm run dev
 - `/workspaces`
 - `/profile`
 
+## Importacao de dados (Organograma)
+
+- Formatos aceitos: `.csv`, `.xlsx`, `.xls`
+- Template oficial: `public/templates/organograma-import-template.csv`
+- Download na interface: `/organograma` -> `Baixar template CSV`
+
+Colunas do template:
+
+- `organization_name`
+- `organization_type`
+- `parent_organization_name`
+- `parent_organization_type`
+- `role_name`
+- `role_responsibilities`
+- `person_name`
+- `person_email`
+- `person_phone`
+- `person_active`
+- `link_start_date`
+- `link_end_date`
+
+Observacoes:
+
+- Datas: `YYYY-MM-DD` ou `DD/MM/YYYY`
+- `person_active`: `true/false`, `sim/nao`, `ativo/inativo`
+
 ## Job de notificacoes
 
 - Endpoint: `POST /api/jobs/notifications`
