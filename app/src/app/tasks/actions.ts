@@ -32,6 +32,39 @@ type TaskForSync = {
   meeting_id: string | null;
 };
 
+function buildCalendarSyncErrorMessage(error: unknown) {
+  const message = error instanceof Error ? error.message : "Erro desconhecido.";
+  const lowerMessage = message.toLowerCase();
+
+  if (lowerMessage.includes("calendar_events") && lowerMessage.includes("workspace_id")) {
+    return "Tabela calendar_events sem workspace_id. Rode o Bloco B do SUPABASE_WORKSPACES_SETUP.md.";
+  }
+  if (lowerMessage.includes("calendar_events")) {
+    return "Tabela calendar_events nao configurada. Rode o SQL SUPABASE_CALENDAR_EVENTS_SETUP.md e o Bloco B do SUPABASE_WORKSPACES_SETUP.md.";
+  }
+  if (
+    lowerMessage.includes("row-level security") ||
+    lowerMessage.includes("violates row-level security") ||
+    lowerMessage.includes("permission denied")
+  ) {
+    return "Sem permissao para registrar a sincronizacao no Supabase. Verifique se seu usuario e owner/admin do workspace e se as policies de calendar_events foram aplicadas.";
+  }
+  if (lowerMessage.includes("not found") || lowerMessage.includes("\"code\": 404")) {
+    return "Calendario ou evento nao encontrado no Google. Confirme o Calendar ID configurado no workspace.";
+  }
+  if (lowerMessage.includes("forbidden") || lowerMessage.includes("\"code\": 403")) {
+    return "Sem permissao no Google Calendar. Compartilhe o calendario com a conta ligada ao refresh token ou gere um novo token com acesso ao calendario.";
+  }
+  if (lowerMessage.includes("invalid_grant")) {
+    return "Refresh token do Google expirado ou revogado. Gere um novo GOOGLE_OAUTH_REFRESH_TOKEN.";
+  }
+  if (lowerMessage.includes("google oauth token error")) {
+    return "Falha ao gerar token do Google. Verifique GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET e GOOGLE_OAUTH_REFRESH_TOKEN.";
+  }
+
+  return message;
+}
+
 async function syncTaskCalendarInternal(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   taskId: string,
@@ -81,11 +114,12 @@ async function syncTaskCalendarInternal(
         .maybeSingle<{ google_event_id: string; calendar_id: string }>(),
     ]);
 
-  if (ownerResult.error || organizationResult.error || meetingResult.error) {
+  if (ownerResult.error || organizationResult.error || meetingResult.error || existingResult.error) {
     throw new Error(
       ownerResult.error?.message ||
         organizationResult.error?.message ||
         meetingResult.error?.message ||
+        existingResult.error?.message ||
         "Erro ao carregar dados da tarefa.",
     );
   }
@@ -108,7 +142,7 @@ async function syncTaskCalendarInternal(
       organizationName: organization.name,
       meetingTitle: meetingResult.data?.title || null,
     },
-    existingResult.data
+    existingResult.data && existingResult.data.calendar_id === integration.calendarId
       ? {
           googleEventId: existingResult.data.google_event_id,
           calendarId: existingResult.data.calendar_id,
@@ -156,7 +190,7 @@ async function tryAutoSyncTaskCalendar(
     });
   } catch (error) {
     // Nao bloqueia create/update da tarefa quando Google falhar.
-    console.error("[tasks:auto-sync] failed", error);
+    console.error("[tasks:auto-sync] failed", buildCalendarSyncErrorMessage(error), error);
   }
 }
 
@@ -374,10 +408,16 @@ export async function syncTaskCalendarAction(formData: FormData) {
     );
   }
 
-  await syncTaskCalendarInternal(supabase, taskId, workspaceId, {
-    calendarId: integration.calendarId,
-    timeZone: integration.timeZone,
-  });
+  try {
+    await syncTaskCalendarInternal(supabase, taskId, workspaceId, {
+      calendarId: integration.calendarId,
+      timeZone: integration.timeZone,
+    });
+  } catch (error) {
+    const message = buildCalendarSyncErrorMessage(error);
+    redirect(`/tasks?create=error&message=${encodeURIComponent(message)}`);
+  }
+
   await logAuditEvent(supabase, {
     entityType: "task",
     entityId: taskId,

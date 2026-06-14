@@ -71,6 +71,8 @@ export function ConviteDiscursoClient({
   const [position, setPosition] = useState("Primeiro orador");
   const [meetingTime, setMeetingTime] = useState("09:00");
   const [arrivalTime, setArrivalTime] = useState("08:45");
+  const [customPresidingOfficerEnabled, setCustomPresidingOfficerEnabled] = useState(false);
+  const [customPresidingOfficer, setCustomPresidingOfficer] = useState("");
   const [materialBase, setMaterialBase] = useState(
     "Líderes da Igreja; Vem, e Segue-Me; Doutrina e Convênios.",
   );
@@ -79,6 +81,10 @@ export function ConviteDiscursoClient({
   const speakerReference = gender === "sister" ? "irmã" : "irmão";
   const invitationArticle = gender === "sister" ? "à" : "ao";
   const formattedDate = formatDisplayDate(date);
+  const defaultPresidingOfficer = bishopric.bishop ? `Bispo ${bishopric.bishop}` : "";
+  const presidingOfficer = customPresidingOfficerEnabled
+    ? customPresidingOfficer
+    : defaultPresidingOfficer;
   const bishopricLines = [
     bishopric.bishop,
     bishopric.firstCounselor,
@@ -312,6 +318,28 @@ export function ConviteDiscursoClient({
               className="mt-1 w-full rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm"
             />
           </label>
+          <div className="md:col-span-3">
+            <label className="flex items-center gap-2 text-xs font-medium text-[var(--muted)]">
+              <input
+                type="checkbox"
+                checked={customPresidingOfficerEnabled}
+                onChange={(event) => setCustomPresidingOfficerEnabled(event.target.checked)}
+                className="h-4 w-4"
+              />
+              Será presidida pela estaca ou outro líder
+            </label>
+            {customPresidingOfficerEnabled ? (
+              <label className="mt-2 block text-xs font-medium text-[var(--muted)]">
+                Quem presidirá
+                <input
+                  value={customPresidingOfficer}
+                  onChange={(event) => setCustomPresidingOfficer(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-[var(--line)] bg-white px-3 py-2 text-sm"
+                  placeholder="Ex.: Presidente Carlos Almeida"
+                />
+              </label>
+            ) : null}
+          </div>
           <label className="text-xs font-medium text-[var(--muted)] md:col-span-3">
             Material base
             <textarea
@@ -396,7 +424,7 @@ export function ConviteDiscursoClient({
 
             <p className="print-tight-top mt-6 text-sm leading-7 text-[#17361f]">
               Às <strong>{meetingTime}</strong>, na <strong>{wardName || "Ala"}</strong>,
-              e será presidida por <strong>Bispo {bishopric.bishop || "..."}</strong>.
+              e será presidida por <strong>{presidingOfficer || "..."}</strong>.
             </p>
             <p className="mt-2 text-sm leading-7 text-[#17361f]">
               Solicitamos sua presença até às <strong>{arrivalTime}</strong>.
