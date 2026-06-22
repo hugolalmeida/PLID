@@ -426,4 +426,5 @@ export async function syncTaskCalendarAction(formData: FormData) {
   });
 
   revalidatePath("/tasks");
+  redirect("/tasks?create=success&message=Calendario%20sincronizado%20com%20sucesso.");
 }
